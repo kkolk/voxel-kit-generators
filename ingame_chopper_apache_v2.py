@@ -503,6 +503,22 @@ def write_vox(path, vox):
     return xoff, yoff
 
 
+def write_vox_framed(path, a):
+    """one part on the full design grid: file coords = design - (X0, Y0, Z0),
+    so every part file shares one frame and assembles without offsets"""
+    def chunk(cid, content, children=b""):
+        return cid + struct.pack("<ii", len(content), len(children)) + content + children
+    idx = np.argwhere(a)
+    xyzi = struct.pack("<i", len(idx)) + b"".join(
+        struct.pack("BBBB", int(i), int(j), int(k), int(a[i, j, k])) for i, j, k in idx)
+    rgba = b"".join(struct.pack("BBBB", r, g, b, 255) for _, (r, g, b) in PALETTE)
+    rgba += struct.pack("BBBB", 0, 0, 0, 0) * (256 - len(PALETTE))
+    main = chunk(b"SIZE", struct.pack("<iii", NX, NY, NZ)) + chunk(b"XYZI", xyzi) + chunk(b"RGBA", rgba)
+    with open(path, "wb") as f:
+        f.write(b"VOX " + struct.pack("<i", 150) + chunk(b"MAIN", b"", main))
+    print(f"wrote {os.path.basename(path)}  {len(idx)} vox  (shared frame {NX}x{NY}x{NZ})")
+
+
 def floaters(vox):
     """voxels outside the largest 6-connected component"""
     vset = set(vox)
@@ -537,13 +553,25 @@ if __name__ == "__main__":
     print("assembly floaters:", floaters(asm_vox))
     ax, ay = write_vox(os.path.join(outdir, "ingame-chopper-4x-apache-assembled-no-rotor-v1.vox"), asm_vox)
 
+    # game rig parts, all on one shared frame (file = design + parts_file_offset)
+    pdir = os.path.join(outdir, "parts")
+    os.makedirs(pdir, exist_ok=True)
+    for name, arr in (("body", body.a), ("canopy", canopy), ("gun", gun), ("tailrotor", tail)):
+        write_vox_framed(os.path.join(pdir, f"ingame-chopper-apache-v2-{name}.vox"), arr)
+
     pivots = {
-        "frame": "voxels: x lateral, y forward (nose +y), z up, wheels z=0; world = file - offset",
+        "frame": "design voxels: x lateral, y forward (nose +y), z up, skids z=0; "
+                 "viewer files: design = file - *_file_offset_xy; parts/: design = file - parts_file_offset",
         "body_file_offset_xy": [bx, by],
         "assembly_file_offset_xy": [ax, ay],
+        "parts_file_offset": [-X0, -Y0, -Z0],
         "rotor": {"world": [0, HUB_Y, ROTOR_Z], "axis": "z"},
         "tailrotor": {"world": [TR_X, FIN_HUB[1], FIN_HUB[2]], "axis": "x", "radius": TR_R},
         "gun": {"world": list(GUN_MOUNT), "axis": "z"},
+        "sensor_lens": {"world": [0.0, 50.0, 20.5], "note": "nose targeting sensor lens front; laser origin"},
+        "pod_muzzles": {"world": [[s * px, 4.0, POD_ZC] for px in (13.0, 21.5) for s in (-1, 1)],
+                        "note": "rocket pod launch faces (inner/outer, left/right)"},
+        "canopy_glass_palette_index": CI["canopy_glass"],
     }
     with open(os.path.join(outdir, "ingame_chopper_apache_pivots.json"), "w") as f:
         json.dump(pivots, f, indent=2)
