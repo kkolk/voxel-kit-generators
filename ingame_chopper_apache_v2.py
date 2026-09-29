@@ -214,7 +214,9 @@ FIN_HUB = (0.0, -70.0, 52.0)       # tail rotor hub (x set by gearbox)
 TR_X = -4.5
 TR_R = 11.5
 GUN_MOUNT = (0.0, 24.0, 14.0)
-SILL_Z = 28.0                       # fuselage top under the canopy / canopy base
+SILL_Z = 28.0                       # fuselage top under the canopy / canopy base (gunner)
+PILOT_SILL_Z = 35.0                 # raised sill behind the cabin post: pilot and gunner
+CABIN_POST_Y = 19.5                 # side windows come out the same height (12)
 # canopy top profile (y, z): rear fairing, pilot roof, pilot windshield,
 # gunner roof, gunner windshield down to the nose
 CAN_PY = [3.0, 6.0, 14.0, 19.0, 26.0, 38.0]
@@ -224,10 +226,10 @@ CAN_HW0, CAN_LEAN = 7.0, 0.16       # canopy half-width at the sill, inward lean
 
 def build_body(L):
     # ---- fuselage loft (squarish superellipse sections) -----------------
-    ys = [-75, -68, -48, -38, -26, -10, 3,  4,  34, 38, 42, 45]
-    zt = [33,  35,  36,  37,  41,  43,  43, 28, 28, 28, 25, 23]
-    zb = [30,  29,  27,  23,  17,  14,  14, 14, 15, 16, 18, 20]
-    hw = [2.0, 2.5, 3.5, 4.5, 6.5, 7.5, 7.5, 7.5, 7, 6, 4.5, 3]
+    ys = [-75, -68, -48, -38, -26, -10, 3,  4,  19, 20, 34, 38, 42, 45]
+    zt = [33,  35,  36,  37,  41,  43,  43, 35, 35, 28, 28, 28, 25, 23]
+    zb = [30,  29,  27,  23,  17,  14,  14, 14, 14, 14, 15, 16, 18, 20]
+    hw = [2.0, 2.5, 3.5, 4.5, 6.5, 7.5, 7.5, 7.5, 7.5, 7.5, 7, 6, 4.5, 3]
 
     def fus(X, Y, Z):
         w = np.interp(Y, ys, hw)
@@ -257,7 +259,7 @@ def build_body(L):
     L.paint(*box(-5, 5, 35, 37, 28, 31), "dark")                  # gunner coaming
     L.paint(*box(-5, 5, 13, 15, 28, 36), "dark")                  # pilot coaming / bulkhead
     place_crew(L, 20, 38, 28)                                      # gunner, low in front
-    place_crew(L, 6, 45, 28)                                       # pilot, raised behind
+    place_crew(L, 6, 45, int(PILOT_SILL_Z))                        # pilot, raised behind
 
     # ---- engine nacelles + intakes + exhausts ---------------------------
     for s in (-1, 1):
@@ -412,18 +414,19 @@ def build_canopy():
     X, Y, Z = C.full()
     ztop = np.interp(Y, CAN_PY, CAN_PZ)
     hw = CAN_HW0 - CAN_LEAN * (Z - SILL_Z)
-    S = (Y >= CAN_PY[0]) & (Y <= CAN_PY[-1]) & (Z >= SILL_Z) & (Z <= ztop) & (np.abs(X) <= hw)
+    sill = np.where(Y < CABIN_POST_Y, PILOT_SILL_Z, SILL_Z)
+    S = (Y >= CAN_PY[0]) & (Y <= CAN_PY[-1]) & (Z >= sill) & (Z <= ztop) & (np.abs(X) <= hw)
     pad = np.pad(S, 1)
     inner = pad.copy()
     for ax in range(3):
         for sg in (-1, 1):
             inner &= np.roll(pad, sg, axis=ax)
     inner = inner[1:-1, 1:-1, 1:-1]
-    shell = S & ~inner & (Z >= SILL_Z + 0.5)
+    shell = S & ~inner & (Z >= sill + 0.5)
     C.a[shell] = CI["canopy_glass"]
     near_top = (ztop - Z) < 1.2
     frame = (
-        (Z < SILL_Z + 1.0) |                                       # sill rail
+        (Z < sill + 1.0) |                                         # sill rail
         (np.abs(X) > hw - 1.0) & near_top |                        # side/top edge
         (Y < CAN_PY[1] + 0.5) |                                    # rear fairing solid
         (np.abs(Y - 19.5) < 0.6) |                                 # post between cabins
