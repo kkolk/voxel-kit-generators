@@ -18,6 +18,9 @@ the rendered models.
 - `smokestack_v1.py`, `smokestack_steel_v1.py` — standalone smokestacks
 - `farmhouse_v1.py`, `farmhouse_v2.py`, `barn_red_v1.py` — farm buildings
 - `zpu2_*.py`, `infantry_*.py`, `ak47-v1.py` — rig/game assets
+- `ingame_chopper_apache_v2.py` — Apache chopper, native voxel scale (viewer 244/245);
+  `render_views.py out.png a.vox` renders a side/front/top/3-quarter sheet
+  (`SCALE=` zoom, `HIDE=7` hides palette slots, e.g. canopy glass)
 - `water_tower_v1.py`, `storage_tank_*.py`, `fuel_tank_v1.py` — tanks
 
 ## Usage
