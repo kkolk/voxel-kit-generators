@@ -330,15 +330,17 @@ def build_body(L):
             L.paint(*rcyl_y(px, POD_ZC, 3.2, 2, 4, 1.0, 0), "gunmetal")               # front rim
             L.paint(*rcyl_y(px, POD_ZC, 3.2, -9, -8, 0, 0), "gunmetal")               # strap bands
             L.paint(*rcyl_y(px, POD_ZC, 3.2, -1, 0, 0, 0), "gunmetal")
-            # launch face: yellow rocket noses in the tubes, black tube walls
+            # launch face, recessed one voxel behind the rim: yellow rocket
+            # noses in the tubes, black tube walls; the rim's front layer is
+            # hollowed out to the face radius so it reads as a lip
+            inside = lambda X, Z, px=px: ((X - px) ** 2 + (Z - POD_ZC) ** 2) <= 2.2 ** 2
             def face(X, Y, Z, px=px):
                 cx, cz = np.floor(X - px), np.floor(Z - POD_ZC)
-                return ((((X - px) ** 2 + (Z - POD_ZC) ** 2) <= 2.2 ** 2) &
-                        (Y >= 3) & (Y <= 4) & ((cx + cz) % 2 == 0))
-            L.paint((px - 3, px + 3, 2, 5, POD_ZC - 3, POD_ZC + 3), face, "deck_line")
-            L.paint((px - 3, px + 3, 2, 5, POD_ZC - 3, POD_ZC + 3),
-                    lambda X, Y, Z, px=px: (((X - px) ** 2 + (Z - POD_ZC) ** 2) <= 2.2 ** 2)
-                    & (Y >= 3) & (Y <= 4) & ~face(X, Y, Z, px), "black")
+                return inside(X, Z) & (Y >= 2) & (Y <= 3) & ((cx + cz) % 2 == 0)
+            fb = (px - 3, px + 3, 1, 5, POD_ZC - 3, POD_ZC + 3)
+            L.paint(fb, face, "deck_line")
+            L.paint(fb, lambda X, Y, Z, px=px: inside(X, Z) & (Y >= 2) & (Y <= 3) & ~face(X, Y, Z, px), "black")
+            L.paint(fb, lambda X, Y, Z: inside(X, Z) & (Y >= 3) & (Y <= 4), 0)       # recess
             L.paint(*rcyl_y(px, POD_ZC, 1.4, -16.5, -15, 0, 0), "black")              # rear exhaust
 
     # ---- Cobra-style skids: two tubes on arched cross tubes ----------------
