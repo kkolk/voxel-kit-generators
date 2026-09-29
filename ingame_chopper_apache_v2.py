@@ -257,7 +257,11 @@ def build_body(L):
     # ---- cockpit tub: floor, seats, crew, coaming (seen through glass) ---
     L.paint(*box(-6, 6, 4, 37, 27, 28.6), "cockpit")
     L.paint(*box(-5, 5, 35, 37, 28, 31), "dark")                  # gunner coaming
-    L.paint(*box(-5, 5, 13, 15, 28, 36), "dark")                  # pilot coaming / bulkhead
+    # pilot tub on the raised deck: same dark floor as the gunner's, plus the
+    # step face behind the gunner, so both seats sit in the same dark well
+    L.paint(*box(-6, 6, 6.5, 19.9, 34, 35.6), "cockpit")
+    L.paint(*box(-6, 6, 17.5, 19.9, 28, 35.6), "cockpit")
+    L.paint(*box(-5, 5, 13, 15, 35, 38), "dark")                  # pilot coaming
     place_crew(L, 20, 38, 28)                                      # gunner, low in front
     place_crew(L, 6, 45, int(PILOT_SILL_Z))                        # pilot, raised behind
 
@@ -422,6 +426,8 @@ def build_canopy():
     inner = pad.copy()
     for ax in range(3):
         for sg in (-1, 1):
+            if ax == 2 and sg == 1:
+                continue            # open underneath: no glass/frame lid over the cockpit floor
             inner &= np.roll(pad, sg, axis=ax)
     inner = inner[1:-1, 1:-1, 1:-1]
     shell = S & ~inner & (Z >= sill + 0.5)
