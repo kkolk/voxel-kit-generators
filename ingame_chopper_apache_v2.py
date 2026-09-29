@@ -10,7 +10,9 @@ raked tandem canopy (gunner low in front, pilot stepped up behind, both
 windshields sloped, sides leaning in), shoulder nacelles level with the
 canopy roof, thin boom rising to a swept fin with left tail rotor,
 stub wings with two dumb-fire rocket pods each, Cobra-style skids,
-cheek fairings, 4-barrel chin gun, crew busts from infantry-green-v2.
+cheek fairings, 4-barrel chin gun, crew busts from infantry-green-v2,
+mottled olive/tan camo with yellow accents (boom band, stab tips, wingtip
+pods, pod rails).
 
 Frame: x lateral (0 = centreline, mirror symmetric), y forward (+y = nose),
 z up, skids touch z=0, rotor mast axis at y=0. Writes:
@@ -52,6 +54,8 @@ PALETTE = [
     ("rubber",       (c8(0.13), c8(0.13), c8(0.15))),
     ("red_light",    (c8(0.86), c8(0.16), c8(0.12))),
     ("green_light",  (c8(0.20), c8(0.80), c8(0.30))),
+    ("yellow",       (c8(0.85), c8(0.68), c8(0.10))),   # accent (v3 uses red)
+    ("camo_tan",     (c8(0.58), c8(0.56), c8(0.38))),
     # crew colours, copied from infantry-green-v2 (viewer #24)
     ("crew_jacket",       (60, 68, 36)),
     ("crew_jacket_dark",  (45, 52, 28)),
@@ -201,6 +205,7 @@ def capsule(p0, p1, r):
 # ------------------------------------------------------------------ key dims (voxels)
 ROTOR_Z = 55             # rotor plane (mast top)
 HUB_Y = 0
+CAMO_SEED = 7
 NAC_X, NAC_R, NAC_Z = 8.5, 5.6, 39.5
 NAC_Y0, NAC_Y1 = -45.0, -4.0
 WING_Z = 23.0
@@ -232,6 +237,14 @@ def build_body(L):
         v = (np.abs(X) / np.maximum(w, 0.01)) ** 4 + (np.abs(Z - zc) / hz) ** 4
         return (v <= 1.0) & (Y >= ys[0]) & (Y <= ys[-1])
     L.paint((-9, 9, ys[0], ys[-1], 12, 46), fus, "olive")
+
+    # yellow diagonal band round the boom, top edge swept aft
+    def band(X, Y, Z):
+        u = Y + 0.9 * (Z - 30) + 50
+        return (u >= 0) & (u < 5) & (Y < -40)
+    sl, X, Y, Z = L._grid((-9, 9, -70, -35, 12, 46))
+    sub = L.a[sl]
+    sub[(sub != 0) & np.broadcast_to(band(X, Y, Z), sub.shape)] = CI["yellow"]
 
     # cheek fairings (avionics bays) along the lower flanks, cockpit to wing
     for s in (-1, 1):
@@ -282,6 +295,7 @@ def build_body(L):
         te = -69.0 - ax * 0.08
         return (ax <= 14) & (Y <= le) & (Y >= te) & (Z >= 31) & (Z <= 33)
     L.paint((-15, 15, -75, -55, 30, 34), stab, "olive_dark")
+    L.paint((-15, 15, -75, -55, 30, 34), lambda X, Y, Z: stab(X, Y, Z) & (np.abs(X) >= 11), "yellow")  # tip caps
     L.paint(*capsule((0, -64, 31), (0, -73, 26), 0.8), "gunmetal")   # tail skid
 
     # ---- stub wings: anhedral, dark leading edge, root fairing, tip pods ----
@@ -301,13 +315,14 @@ def build_body(L):
         L.paint(*box(min(s * 5, s * 9), max(s * 5, s * 9), -16, 4, 20, 25), "olive")                  # root fairing
         # wingtip countermeasure pod + nav light (red port / green starboard)
         tx, tz = s * 28.0, WING_Z - 22 * 0.09
-        L.paint(*rcyl_y(tx, tz, 1.5, -14, 3, 1.5, 1.0), "olive_dark")
+        L.paint(*rcyl_y(tx, tz, 1.5, -14, 3, 1.5, 1.0), "yellow")
         L.paint(*box(tx - 1, tx + 1, 3, 4, tz - 1, tz + 1), "red_light" if s < 0 else "green_light")
 
         # two hardpoints per wing, each with a 19-tube dumb-fire rocket pod
         for px in (s * 13.0, s * 21.5):
             wz = WING_Z - (abs(px) - 6) * 0.09 - 1.0             # wing underside
             L.paint(*box(px - 1, px + 1, -10, 1, POD_ZC + 2, wz), "gunmetal")        # pylon
+            L.paint(*box(px - 1, px + 1, -15, 3, POD_ZC + 2.2, POD_ZC + 3.4), "yellow")  # rail on the pod
             L.paint(*box(px - 1.5, px + 1.5, -8, -1, wz - 0.5, wz + 0.3), "dark")     # rack
             L.paint(*rcyl_y(px, POD_ZC, 3.2, -15, 3, 1.0, 2.5), "steel_dark")         # pod body
             L.paint(*rcyl_y(px, POD_ZC, 3.2, 2, 4, 1.0, 0), "gunmetal")               # front rim
@@ -357,6 +372,25 @@ def build_body(L):
         flank(s, 1, 22, "white")
         for vy in (-22, -23, -27, -28):
             flank(s, vy, 30, "black")
+
+
+def camo(a):
+    """mottled field camo: low-frequency value noise splits olive hull voxels
+    into olive / olive_dark / camo_tan blotches"""
+    rng = np.random.default_rng(CAMO_SEED)
+    cell = 5.0
+    g = rng.random((int(NX / cell) + 3, int(NY / cell) + 3, int(NZ / cell) + 3))
+    ix, iy, iz = [np.arange(n) / cell for n in a.shape]
+    def lerp_axis(v, t, axis):
+        i0 = np.floor(t).astype(int)
+        f = (t - i0)
+        f = f * f * (3 - 2 * f)
+        sh = [1, 1, 1]; sh[axis] = -1
+        return np.take(v, i0, axis=axis) * (1 - f.reshape(sh)) + np.take(v, i0 + 1, axis=axis) * f.reshape(sh)
+    n = lerp_axis(lerp_axis(lerp_axis(g, ix, 0), iy, 1), iz, 2)
+    o = a == CI["olive"]
+    a[o & (n < 0.36)] = CI["olive_dark"]
+    a[o & (n > 0.64)] = CI["camo_tan"]
 
 
 def shade_top(a):
@@ -482,7 +516,7 @@ if __name__ == "__main__":
     outdir = sys.argv[1] if len(sys.argv) > 1 else HERE
     body = Layer()
     build_body(body)
-    shade_top(body.a)
+    camo(body.a)
     canopy, gun, tail = build_canopy(), build_gun(), build_tail_rotor()
 
     body_vox = to_vox([body.a])
