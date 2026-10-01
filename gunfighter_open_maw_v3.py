@@ -38,7 +38,7 @@ PALETTE = [
     ("blade",        (205, 210, 216)),   # 6 intake splitter (light)
     ("gunmetal",     ( 48,  50,  54)),   # 7 barrels
     ("bore",         ( 16,  16,  18)),   # 8 intake duct interior (near-black)
-    ("canopy",       ( 38,  58,  78)),   # 9 glass (functional)
+    ("canopy",       (150, 200, 232)),  # 9 glass (functional)
     ("pilot",        ( 74,  84,  62)),   # 10 pilot (functional)
     ("helmet",       (210, 210, 208)),   # 11 helmet (functional)
     ("steel",        (118, 123, 129)),   # 12 nozzle
@@ -61,11 +61,10 @@ def box(d, x0, x1, y0, y1, z0, z1, c):
 
 # ---------------------------------------------------------------- fuselage
 def fuselage_r(y):
-    """Outer radius profile. Nose (intake) at y=110, tail tip at y=-110."""
+    """Outer radius profile. Nose (intake) at y=110, tail tip at y=-110.
+    Front FLARE (reversed taper): the maw opens wider toward the lip."""
     if y >= 95:
-        return 19.0
-    if y >= 60:
-        return 19.0 + (y - 60) / 35.0 * 3.0      # 19 -> 22
+        return 22.0 + (y - 95) / 15.0 * 2.5   # 22 -> 24.5 at the lip
     if y >= -55:
         return 22.0
     if y >= -90:
@@ -196,11 +195,11 @@ for y in range(107, 117):
 # ---------------------------------------------------------------- canopy + pilot
 canopy = parts["canopy"]
 pilot = parts["pilot"]
-# teardrop canopy y 52..86, framed: grey frame + dark glass
-for y in range(52, 87):
-    t = (y - 52) / 34.0
-    w = 7.5 * math.sin(math.pi * min(1.0, 0.15 + t * 0.85)) + 1.5
-    h = 8.0 * math.sin(math.pi * min(1.0, 0.12 + t * 0.88)) + 1.0
+# teardrop canopy y 44..94, framed: grey frame + light glass bubble
+for y in range(44, 95):
+    t = (y - 44) / 50.0
+    w = 10.5 * math.sin(math.pi * min(1.0, 0.15 + t * 0.85)) + 2.5
+    h = 11.0 * math.sin(math.pi * min(1.0, 0.12 + t * 0.88)) + 1.5
     zbase = int(fuselage_r(y) * 1.06) - 1
     for x in range(-int(w) - 1, int(w) + 2):
         for dz in range(0, int(h) + 2):
@@ -216,15 +215,15 @@ for y in range(52, 87):
                 if (x / w) ** 2 + (dz / h) ** 2 <= 1.0 and abs(x) > w - 2.2:
                     canopy[(x, y, z)] = A
 # pilot: seat + torso + helmet (mostly hidden, separate part)
-for y in range(60, 74):
-    for x in range(-3, 4):
-        for z in range(8, 15):
-            if abs(x) <= 3 - abs(y - 67) // 4:
+for y in range(58, 78):
+    for x in range(-4, 5):
+        for z in range(8, 17):
+            if abs(x) <= 4 - abs(y - 68) // 4:
                 pilot[(x, y, z)] = PI
 for x in range(-2, 3):
-    for z in range(14, 18):
-        if x * x + (z - 15) ** 2 <= 5:
-            pilot[(0 + x, 66, z)] = H
+    for z in range(15, 19):
+        if x * x + (z - 16) ** 2 <= 5:
+            pilot[(0 + x, 68, z)] = H
 
 # ---------------------------------------------------------------- wings
 def build_wing(side, pname):
@@ -438,7 +437,7 @@ VOXEL_M = 0.075
 
 PIVOTS = {
     "core": (0, 0, 0),
-    "canopy": (0, 70, 20),
+    "canopy": (0, 69, 24),
     "pilot": (0, 66, 12),
     "wing_l": (-20, 0, 10),
     "wing_r": (20, 0, 10),
