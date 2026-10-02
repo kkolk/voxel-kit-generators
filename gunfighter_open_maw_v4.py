@@ -19,7 +19,12 @@ Measured from the concept sheet (fuselage nose->nozzle = 220 vox):
 
 Nine destructible parts, one shared frame. x lateral, y forward (nose +y),
 z up. FIGHTER_VOXEL 0.075 m.
+
+Finish variants (same geometry, rig and pivots):
+  python3 gunfighter_open_maw_v4.py                 # plain greys -> *-v4.*
+  python3 gunfighter_open_maw_v4.py --finish camo   # off-grey camo -> *-v4-camo.*
 """
+import argparse
 import math
 import os
 import struct
@@ -47,8 +52,13 @@ PALETTE = [
     ("steel_dark",   ( 78,  83,  89)),   # 13 nozzle dark
     ("airframe_lt",  (160, 165, 170)),   # 14 light tonal step
     ("tire",         ( 34,  34,  36)),   # 15 landing-gear tires
+    ("camo_light",   (170, 171, 165)),   # 16 warm off-grey
+    ("camo_mid",     (134, 140, 142)),   # 17 blue-grey
+    ("camo_dark",    ( 99, 105, 110)),   # 18 slate grey
+    ("belly",        (192, 196, 198)),   # 19 pale underside
 ]
-A, AM, P, R, G, B, M, O, C, PI, H, S, SD, AL, T = range(1, 16)
+(A, AM, P, R, G, B, M, O, C, PI, H, S, SD, AL, T,
+ CL, CM, CD, BL) = range(1, 20)
 
 parts = {n: {} for n in (
     "core", "canopy", "pilot",
@@ -480,6 +490,59 @@ for side, pname in ((-1, "gear_l"), (1, "gear_r")):
             mg[(cx + side * 3, y, z)] = A
     strut(mg, (cx + side * 2,), (MAIN_GEAR_Y,), -10, -8, SD)                 # door link
 
+# ---------------------------------------------------------------- finish: off-grey camo
+# Three-tone blob camo on upper surfaces, pale belly. Sampled in the shared
+# frame so the pattern runs unbroken across part seams. Only plain airframe
+# voxels (A) are repainted; red, glass, metal and hinge lines are kept.
+CAMO_SEED = 7
+CAMO_ANGLE = math.radians(35)          # blobs stretched along this heading
+
+
+def _hash(ix, iy, iz):
+    h = (ix * 374761393 + iy * 668265263 + iz * 2147483647 + CAMO_SEED * 1442695041)
+    h = (h ^ (h >> 13)) * 1274126177
+    return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0
+
+
+def _value_noise(u, v, w):
+    i, j, k = math.floor(u), math.floor(v), math.floor(w)
+    fu, fv, fw = u - i, v - j, w - k
+    su, sv, sw = (f * f * (3 - 2 * f) for f in (fu, fv, fw))
+    acc = 0.0
+    for di, wu in ((0, 1 - su), (1, su)):
+        for dj, wv in ((0, 1 - sv), (1, sv)):
+            for dk, ww in ((0, 1 - sw), (1, sw)):
+                acc += wu * wv * ww * _hash(i + di, j + dj, k + dk)
+    return acc
+
+
+def camo_tone(x, y, z):
+    ca, sa = math.cos(CAMO_ANGLE), math.sin(CAMO_ANGLE)
+    u = (x * ca + y * sa) / 30.0       # long axis
+    v = (-x * sa + y * ca) / 16.0
+    w = z / 16.0
+    n = 0.7 * _value_noise(u, v, w) + 0.3 * _value_noise(u * 2.3, v * 2.3, w * 2.3 + 9.1)
+    if n < 0.42:
+        return CL
+    if n < 0.58:
+        return CM
+    return CD
+
+
+def apply_camo():
+    for name, vox in parts.items():
+        for (x, y, z), c in vox.items():
+            if c != A:
+                continue
+            below, above = (x, y, z - 1) in vox, (x, y, z + 1) in vox
+            underside = (not below and above) or name in GEAR_PARTS
+            # fuselage: belly below a wavy line on the flanks
+            if name == "core" and z < -0.45 * fuselage_r(y) + 2.5 * math.sin(y / 9.0):
+                underside = True
+            vox[(x, y, z)] = BL if underside else camo_tone(x, y, z)
+
+
+
 # ---------------------------------------------------------------- frame / pivots / write
 FRAME_LO = (-111, -132, GROUND_Z - 1)
 FRAME_HI = (111, 112, 70)
@@ -531,13 +594,25 @@ def bbox_of(vox):
     return [min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)]
 
 
+FINISHES = ("plain", "camo")
+FINISH = "plain"
+TAG = "v4"
+
+
 def main():
+    global FINISH, TAG
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--finish", choices=FINISHES, default="plain")
+    FINISH = ap.parse_args().finish
+    TAG = "v4" if FINISH == "plain" else f"v4-{FINISH}"
+    if FINISH == "camo":
+        apply_camo()
     from preview_camera import render_camera
     manifest_parts = []
     merged = {}
     parked = {}
     for name, vox in parts.items():
-        path = os.path.join(OUT, f"gunfighter-{name}-v4.vox")
+        path = os.path.join(OUT, f"gunfighter-{name}-{TAG}.vox")
         write_vox_frame(path, vox)
         manifest_parts.append({
             "name": name,
@@ -550,13 +625,14 @@ def main():
         if name not in GEAR_PARTS:
             merged.update(vox)
         parked.update(vox)
-    mpath = os.path.join(OUT, "gunfighter-merged-v4.vox")
+    mpath = os.path.join(OUT, f"gunfighter-merged-{TAG}.vox")
     write_vox_frame(mpath, merged)
-    ppath = os.path.join(OUT, "gunfighter-merged-parked-v4.vox")
+    ppath = os.path.join(OUT, f"gunfighter-merged-parked-{TAG}.vox")
     write_vox_frame(ppath, parked)
     bb = bbox_of(merged)
     manifest = {
-        "model": "gunfighter-open-maw-v4",
+        "model": f"gunfighter-open-maw-{TAG}",
+        "finish": FINISH,
         "frame": {"x": "lateral (port -x)", "y": "forward (nose +y)",
                   "z": "up, z=0 on the fuselage axis",
                   "size": list(FRAME_SIZE), "offset": list(FRAME_OFF),
@@ -571,27 +647,27 @@ def main():
             "pivot": [0, 0, 0], "voxels": len(parked),
             "bbox_design": bbox_of(parked), "ground_z": GROUND_Z}],
     }
-    jpath = os.path.join(OUT, "pivot_manifest_v4.json")
+    jpath = os.path.join(OUT, f"pivot_manifest_{TAG}.json")
     with open(jpath, "w") as f:
         json.dump(manifest, f, indent=1)
     print(f"wrote {jpath}")
 
     pal = [p for p in PALETTE if p]
-    render_camera(os.path.join(OUT, "preview_hero_v4.png"), merged, pal,
+    render_camera(os.path.join(OUT, f"preview_hero_{TAG}.png"), merged, pal,
                   cam_pos=(-95, 215, 85), look_at=(0, 0, 8), scale=5)
-    render_camera(os.path.join(OUT, "preview_side_v4.png"), merged, pal,
+    render_camera(os.path.join(OUT, f"preview_side_{TAG}.png"), merged, pal,
                   cam_pos=(-270, -10, 20), look_at=(0, -10, 20), scale=4)
-    render_camera(os.path.join(OUT, "preview_top_v4.png"), merged, pal,
+    render_camera(os.path.join(OUT, f"preview_top_{TAG}.png"), merged, pal,
                   cam_pos=(0, -10, 290), look_at=(0, -10, 4), up=(0, 1, 0), scale=4)
-    render_camera(os.path.join(OUT, "preview_nose_v4.png"), merged, pal,
+    render_camera(os.path.join(OUT, f"preview_nose_{TAG}.png"), merged, pal,
                   cam_pos=(-45, 240, 30), look_at=(0, 95, 0), scale=7,
                   size=(1000, 1000))
-    render_camera(os.path.join(OUT, "preview_front_v4.png"), merged, pal,
+    render_camera(os.path.join(OUT, f"preview_front_{TAG}.png"), merged, pal,
                   cam_pos=(0, 270, 20), look_at=(0, 0, 20), scale=5,
                   size=(1500, 1100))
-    render_camera(os.path.join(OUT, "preview_parked_v4.png"), parked, pal,
+    render_camera(os.path.join(OUT, f"preview_parked_{TAG}.png"), parked, pal,
                   cam_pos=(-150, 170, 10), look_at=(0, 10, -8), scale=5)
-    render_camera(os.path.join(OUT, "preview_parked_front_v4.png"), parked, pal,
+    render_camera(os.path.join(OUT, f"preview_parked_front_{TAG}.png"), parked, pal,
                   cam_pos=(0, 270, -5), look_at=(0, 0, -5), scale=5,
                   size=(1500, 1100))
 
