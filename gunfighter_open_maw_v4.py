@@ -23,6 +23,7 @@ z up. FIGHTER_VOXEL 0.075 m.
 Finish variants (same geometry, rig and pivots):
   python3 gunfighter_open_maw_v4.py                 # plain greys -> *-v4.*
   python3 gunfighter_open_maw_v4.py --finish camo   # off-grey camo -> *-v4-camo.*
+  python3 gunfighter_open_maw_v4.py --finish jungle # SEA jungle camo -> *-v4-jungle.*
 """
 import argparse
 import math
@@ -56,9 +57,13 @@ PALETTE = [
     ("camo_mid",     (134, 140, 142)),   # 17 blue-grey
     ("camo_dark",    ( 99, 105, 110)),   # 18 slate grey
     ("belly",        (192, 196, 198)),   # 19 pale underside
+    ("jungle_tan",   (158, 127,  86)),   # 20 SEA tan
+    ("jungle_green", ( 92, 102,  58)),   # 21 SEA medium green
+    ("jungle_dark",  ( 56,  66,  44)),   # 22 SEA dark green
+    ("jungle_belly", (206, 206, 196)),   # 23 light grey underside
 ]
 (A, AM, P, R, G, B, M, O, C, PI, H, S, SD, AL, T,
- CL, CM, CD, BL) = range(1, 20)
+ CL, CM, CD, BL, JT, JG, JD, JB) = range(1, 24)
 
 parts = {n: {} for n in (
     "core", "canopy", "pilot",
@@ -490,21 +495,28 @@ for side, pname in ((-1, "gear_l"), (1, "gear_r")):
             mg[(cx + side * 3, y, z)] = A
     strut(mg, (cx + side * 2,), (MAIN_GEAR_Y,), -10, -8, SD)                 # door link
 
-# ---------------------------------------------------------------- finish: off-grey camo
+# ---------------------------------------------------------------- finish: camo schemes
 # Three-tone blob camo on upper surfaces, pale belly. Sampled in the shared
 # frame so the pattern runs unbroken across part seams. Only plain airframe
 # voxels (A) are repainted; red, glass, metal and hinge lines are kept.
-CAMO_SEED = 7
-CAMO_ANGLE = math.radians(35)          # blobs stretched along this heading
+# tones run light -> dark against rising noise; cuts split the noise bands.
+CAMO_SCHEMES = {
+    # off-grey: small diagonal blobs
+    "camo": dict(tones=(CL, CM, CD), cuts=(0.42, 0.58), belly=BL,
+                 scale=(30.0, 16.0), angle=35, seed=7),
+    # jungle (SEA-style): larger blobs, greens dominant over tan
+    "jungle": dict(tones=(JT, JG, JD), cuts=(0.40, 0.53), belly=JB,
+                   scale=(38.0, 22.0), angle=20, seed=11),
+}
 
 
-def _hash(ix, iy, iz):
-    h = (ix * 374761393 + iy * 668265263 + iz * 2147483647 + CAMO_SEED * 1442695041)
+def _hash(ix, iy, iz, seed):
+    h = (ix * 374761393 + iy * 668265263 + iz * 2147483647 + seed * 1442695041)
     h = (h ^ (h >> 13)) * 1274126177
     return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0
 
 
-def _value_noise(u, v, w):
+def _value_noise(u, v, w, seed):
     i, j, k = math.floor(u), math.floor(v), math.floor(w)
     fu, fv, fw = u - i, v - j, w - k
     su, sv, sw = (f * f * (3 - 2 * f) for f in (fu, fv, fw))
@@ -512,24 +524,27 @@ def _value_noise(u, v, w):
     for di, wu in ((0, 1 - su), (1, su)):
         for dj, wv in ((0, 1 - sv), (1, sv)):
             for dk, ww in ((0, 1 - sw), (1, sw)):
-                acc += wu * wv * ww * _hash(i + di, j + dj, k + dk)
+                acc += wu * wv * ww * _hash(i + di, j + dj, k + dk, seed)
     return acc
 
 
-def camo_tone(x, y, z):
-    ca, sa = math.cos(CAMO_ANGLE), math.sin(CAMO_ANGLE)
-    u = (x * ca + y * sa) / 30.0       # long axis
-    v = (-x * sa + y * ca) / 16.0
-    w = z / 16.0
-    n = 0.7 * _value_noise(u, v, w) + 0.3 * _value_noise(u * 2.3, v * 2.3, w * 2.3 + 9.1)
-    if n < 0.42:
-        return CL
-    if n < 0.58:
-        return CM
-    return CD
+def camo_tone(x, y, z, sch):
+    a = math.radians(sch["angle"])
+    ca, sa = math.cos(a), math.sin(a)
+    long_s, short_s = sch["scale"]
+    u = (x * ca + y * sa) / long_s       # long axis
+    v = (-x * sa + y * ca) / short_s
+    w = z / short_s
+    seed = sch["seed"]
+    n = (0.7 * _value_noise(u, v, w, seed)
+         + 0.3 * _value_noise(u * 2.3, v * 2.3, w * 2.3 + 9.1, seed))
+    light, mid, dark = sch["tones"]
+    lo, hi = sch["cuts"]
+    return light if n < lo else mid if n < hi else dark
 
 
-def apply_camo():
+def apply_camo(scheme):
+    sch = CAMO_SCHEMES[scheme]
     for name, vox in parts.items():
         for (x, y, z), c in vox.items():
             if c != A:
@@ -539,7 +554,7 @@ def apply_camo():
             # fuselage: belly below a wavy line on the flanks
             if name == "core" and z < -0.45 * fuselage_r(y) + 2.5 * math.sin(y / 9.0):
                 underside = True
-            vox[(x, y, z)] = BL if underside else camo_tone(x, y, z)
+            vox[(x, y, z)] = sch["belly"] if underside else camo_tone(x, y, z, sch)
 
 
 
@@ -594,7 +609,7 @@ def bbox_of(vox):
     return [min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)]
 
 
-FINISHES = ("plain", "camo")
+FINISHES = ("plain",) + tuple(CAMO_SCHEMES)
 FINISH = "plain"
 TAG = "v4"
 
@@ -605,8 +620,8 @@ def main():
     ap.add_argument("--finish", choices=FINISHES, default="plain")
     FINISH = ap.parse_args().finish
     TAG = "v4" if FINISH == "plain" else f"v4-{FINISH}"
-    if FINISH == "camo":
-        apply_camo()
+    if FINISH in CAMO_SCHEMES:
+        apply_camo(FINISH)
     from preview_camera import render_camera
     manifest_parts = []
     merged = {}
