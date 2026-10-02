@@ -582,12 +582,12 @@ PIVOTS = {
 }
 
 
-def write_vox_frame(path, vox):
+def write_vox_frame(path, vox, size=None, off=None):
     def chunk(cid, content, children=b""):
         return cid + struct.pack("<ii", len(content), len(children)) + content + children
 
-    sx, sy, sz = FRAME_SIZE
-    ox, oy, oz = FRAME_OFF
+    sx, sy, sz = size or FRAME_SIZE
+    ox, oy, oz = off or FRAME_OFF
     for (x, y, z) in vox:
         assert 0 <= x + ox < sx and 0 <= y + oy < sy and 0 <= z + oz < sz, (x, y, z)
     xyzi = struct.pack("<i", len(vox))
@@ -602,6 +602,39 @@ def write_vox_frame(path, vox):
         f.write(struct.pack("<i", 150))
         f.write(chunk(b"MAIN", b"", main_children))
     print(f"wrote {path} ({len(vox)} voxels)")
+
+
+# ---------------------------------------------------------------- in-game export
+# Strike Bay flies the merged in-flight model 2x coarser (86k surface voxels
+# at full res is ~7x the player chopper). Each axis bins symmetric about 0:
+# v -> sign(v) * ceil(|v| / 2), so cell 0 is the 1-wide centreline and the
+# rest pair up -- the mirror-symmetric airframe stays symmetric. A cell is
+# filled if any of its voxels is; colour is the majority, ties going to the
+# markings so the red bands and glass survive.
+INGAME_TIE = (R, C, M, O)
+
+
+def _bin(v):
+    return int(math.copysign(math.ceil(abs(v) / 2), v))
+
+
+def downsample(vox):
+    cells = {}
+    for (x, y, z), c in vox.items():
+        cells.setdefault((_bin(x), _bin(y), _bin(z)), []).append(c)
+    out = {}
+    for k, cs in cells.items():
+        counts = {c: cs.count(c) for c in set(cs)}
+        top = max(counts.values())
+        tied = [c for c in counts if counts[c] == top]
+        out[k] = next((c for c in INGAME_TIE if c in tied), min(tied))
+    return out
+
+
+INGAME_LO = tuple(_bin(v) for v in FRAME_LO)
+INGAME_HI = tuple(_bin(v) for v in FRAME_HI)
+INGAME_SIZE = tuple(h - l + 1 for l, h in zip(INGAME_LO, INGAME_HI))
+INGAME_OFF = tuple(-l for l in INGAME_LO)
 
 
 def bbox_of(vox):
@@ -644,6 +677,9 @@ def main():
     write_vox_frame(mpath, merged)
     ppath = os.path.join(OUT, f"gunfighter-merged-parked-{TAG}.vox")
     write_vox_frame(ppath, parked)
+    ingame = downsample(merged)
+    ipath = os.path.join(OUT, f"ingame-gunfighter-{TAG}.vox")
+    write_vox_frame(ipath, ingame, INGAME_SIZE, INGAME_OFF)
     bb = bbox_of(merged)
     manifest = {
         "model": f"gunfighter-open-maw-{TAG}",
@@ -661,6 +697,10 @@ def main():
             "name": "merged_parked", "file": os.path.basename(ppath),
             "pivot": [0, 0, 0], "voxels": len(parked),
             "bbox_design": bbox_of(parked), "ground_z": GROUND_Z}],
+        "ingame": {"file": os.path.basename(ipath), "downsample": 2,
+                   "bin": "sign(v) * ceil(|v| / 2) per design axis",
+                   "size": list(INGAME_SIZE), "offset": list(INGAME_OFF),
+                   "voxels": len(ingame)},
     }
     jpath = os.path.join(OUT, f"pivot_manifest_{TAG}.json")
     with open(jpath, "w") as f:
