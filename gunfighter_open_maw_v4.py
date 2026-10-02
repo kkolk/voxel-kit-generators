@@ -198,8 +198,8 @@ for x in range(-20, 21):
         if body_d(x, 86, z) < SHELL_INNER + 0.02:
             core[(x, 86, z)] = O
 
-# splitter blade: thin vertical divider, recessed behind the lip (dark gunmetal)
-for y in range(86, 106):
+# splitter blade: thin vertical divider, set deep in the duct (dark gunmetal)
+for y in range(86, 99):
     for z in range(-20, 21):
         if body_d(0, y, z) < SHELL_INNER + 0.02:
             core[(0, y, z)] = M
