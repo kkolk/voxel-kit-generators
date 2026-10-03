@@ -76,6 +76,15 @@ def cyl_z(d, cx, cy, r, z0, z1, c):
                     d[(x, y, z)] = ci
 
 
+def cyl_x(d, cy, cz, r, x0, x1, c):
+    ci = CI[c]
+    for y in range(cy - r, cy + r + 1):
+        for z in range(cz - r, cz + r + 1):
+            if (y - cy) ** 2 + (z - cz) ** 2 <= r * r:
+                for x in range(int(x0), int(x1)):
+                    d[(x, y, z)] = ci
+
+
 def ring_z(d, cx, cy, r, z0, z1, c):
     ci = CI[c]
     for x in range(cx - r, cx + r + 1):
@@ -154,136 +163,91 @@ def weather(d, x0, x1, y0, y1, z0, z1, c):
                 if (x, y, z) in d and (x * 73856093 ^ y * 19349663 ^ z * 83492791) % 13 == 0:
                     d[(x, y, z)] = ci
 
-# ================================================================ PEDESTAL (static)
-# Battered concrete tower: 4 stepped bands, 2-thick walls, hollow.
-BANDS = [(0, 22, 36), (22, 44, 34), (44, 66, 32), (66, 88, 30)]
+# ================================================================ PEDESTAL (static) v2
+# Spec-sheet "DEEP CUT isolated tower": 4 splayed concrete legs + steel
+# X-bracing + reinforced platform + equipment hut (replaces the solid tower).
+# Scale-checked vs the 1.5 m soldier (11.5 vox at 0.13 m/vox):
+#   hut door 8w x 16h (1.04 x 2.08 m), platform railing 8h (1.04 m).
+
+# --- reinforced platform (rotation deck support)
+box(pedestal, -34, 35, -34, 35, 84, 88, "concrete")        # 68x68 platform slab
+box(pedestal, -35, 36, -35, 36, 88, 89, "concrete_light")  # platform lip
+
+# --- rotation deck
+box(pedestal, -32, 33, -32, 33, 88, 90, "concrete")        # 64x64 deck slab
+ring_z(pedestal, 0, 0, 32, 90, 92, "dark")                 # race ring (static gear)
+# railing: 8 vox tall (1.04 m) at the platform edge
+for x in range(-33, 34, 8):
+    for y in (-34, 34):
+        box(pedestal, x, x + 1, y, y + 1, 89, 97, "steel_dark")
+        box(pedestal, y, y + 1, x, x + 1, 89, 97, "steel_dark")
+box(pedestal, -34, 35, -34, -33, 96, 97, "steel_dark")     # top rails
+box(pedestal, -34, 35, 34, 35, 96, 97, "steel_dark")
+box(pedestal, -34, -33, -34, 35, 96, 97, "steel_dark")
+box(pedestal, 34, 35, -34, 35, 96, 97, "steel_dark")
+
+# --- 4 splayed legs: (±28,±28,84) -> (±42,±42,0), 8x8 concrete piers
+for sx in (-1, 1):
+    for sy in (-1, 1):
+        line3(pedestal, (sx * 28, sy * 28, 84), (sx * 42, sy * 42, 0), 8, "concrete")
+        box(pedestal, sx * 42 - 6, sx * 42 + 7, sy * 42 - 6, sy * 42 + 7,
+            0, 4, "concrete_dark")                          # footing
 
 
-def band_walls(z0, z1, hw):
-    # 4 walls, 2 thick; face planes at +/-hw
-    box(pedestal, -hw, hw, hw - 2, hw, z0, z1, "concrete")      # +y
-    box(pedestal, -hw, hw, -hw, -hw + 2, z0, z1, "concrete")    # -y
-    box(pedestal, hw - 2, hw, -hw, hw, z0, z1, "concrete")      # +x
-    box(pedestal, -hw, -hw + 2, -hw, hw, z0, z1, "concrete")    # -x
-    # proud course lip at the band top
-    box(pedestal, -hw - 1, hw + 1, hw - 1, hw + 1, z1 - 1, z1 + 1, "concrete_light")
-    box(pedestal, -hw - 1, hw + 1, -hw - 1, -hw + 1, z1 - 1, z1 + 1, "concrete_light")
-    box(pedestal, hw - 1, hw + 1, -hw, hw, z1 - 1, z1 + 1, "concrete_light")
-    box(pedestal, -hw - 1, -hw + 1, -hw, hw, z1 - 1, z1 + 1, "concrete_light")
+def _leg_c(s, z):
+    """Leg centerline coordinate at height z (splays 28->42)."""
+    return s * (28 + 14 * (84 - z) / 84)
 
 
-for z0, z1, hw in BANDS:
-    band_walls(z0, z1, hw)
+# --- steel X-bracing between the legs (3x3), both diagonals per face
+for z_lo, z_hi in [(12, 68)]:
+    for s in (-1, 1):
+        xl, xh = _leg_c(1, z_lo), _leg_c(1, z_hi)
+        # +y / -y faces
+        line3(pedestal, (-xl, s * xl, z_lo), (xh, s * xh, z_hi), 3, "steel_dark")
+        line3(pedestal, (xl, s * xl, z_lo), (-xh, s * xh, z_hi), 3, "steel_dark")
+        # +x / -x faces
+        line3(pedestal, (s * xl, -xl, z_lo), (s * xh, xh, z_hi), 3, "steel_dark")
+        line3(pedestal, (s * xl, xl, z_lo), (s * xh, -xh, z_hi), 3, "steel_dark")
 
-# transition collars: each narrower band seats on a perimeter ring at the wider
-# band's footprint (also serve as interior floor plates)
-def collar(z0, z1, hw):
-    box(pedestal, -hw, hw, hw - 4, hw, z0, z1, "concrete")
-    box(pedestal, -hw, hw, -hw, -hw + 4, z0, z1, "concrete")
-    box(pedestal, hw - 4, hw, -hw, hw, z0, z1, "concrete")
-    box(pedestal, -hw, -hw + 4, -hw, hw, z0, z1, "concrete")
-
-
-collar(21, 24, 36)
-collar(43, 46, 34)
-collar(65, 68, 32)
-
-# base plinth
-box(pedestal, -38, 38, -38, 38, 0, 3, "concrete_dark")
-
-# ---- ground-floor ops room (buried interior, revealed by damage)
-box(pedestal, -34, 34, -34, 34, 0, 2, "concrete_dark")          # floor slab
-box(pedestal, -34, 34, -34, 34, 18, 20, "concrete_dark")        # ceiling slab
-for sx in (-1, 1):                                              # wall liners
-    box(pedestal, 24 * sx - (1 if sx > 0 else 0), 24 * sx + (0 if sx > 0 else 1),
-        -24, 24, 2, 18, "concrete")
-box(pedestal, -24, 24, -24, -23, 2, 18, "concrete")
-box(pedestal, -24, -3, 23, 24, 2, 18, "concrete")               # +y liner, door gap
-box(pedestal, 3, 24, 23, 24, 2, 18, "concrete")
-box(pedestal, -3, 3, 23, 24, 12, 18, "concrete")               # header over door
-for lx in range(-20, 21, 8):                                   # ceiling light strips
-    box(pedestal, lx, lx + 3, -2, 2, 17, 18, "white")
-for rx in (-18, -6, 8):                                       # equipment racks
-    box(pedestal, rx, rx + 8, -22, -18, 2, 12, "dark")
-    box(pedestal, rx, rx + 8, -22, -18, 12, 13, "steel_dark")
-box(pedestal, 12, 20, 8, 16, 2, 10, "dark")                   # console block
-box(pedestal, 12, 20, 8, 9, 10, 14, "window")                 # console screen glow
-
-# ---- upper equipment room
-box(pedestal, -30, 30, -30, 30, 44, 46, "concrete_dark")
-box(pedestal, -30, 30, -30, 30, 60, 62, "concrete_dark")
-box(pedestal, -16, 16, -16, 16, 46, 60, "concrete")            # solid core w/ room carved
+# --- equipment hut under the platform (28x20x22, walls 2 thick)
+box(pedestal, -14, 15, -10, 11, 0, 22, "concrete")          # solid, then carve
 for x in range(-12, 13):
-    for y in range(-12, 13):
-        for z in range(48, 58):
+    for y in range(-8, 9):
+        for z in range(2, 20):
             pedestal.pop((x, y, z), None)
-box(pedestal, -12, 12, -12, 12, 47, 48, "steel_dark")          # floor plate
-for vx in (-8, 0, 8):
-    box(pedestal, vx, vx + 4, -12, -11, 48, 56, "dark")        # vent racks
-
-# ---- door on +y face (band1 face at y=36) + steps
+box(pedestal, -12, 13, -8, 9, 1, 2, "steel_dark")           # floor plate
+box(pedestal, -12, 13, -8, 9, 19, 20, "dark")               # ceiling
+for lx in range(-8, 9, 8):                                  # light strips
+    box(pedestal, lx, lx + 3, -2, 2, 18, 19, "white")
+for rx in (-10, 0):                                         # equipment racks
+    box(pedestal, rx, rx + 6, -7, -4, 2, 12, "dark")
+box(pedestal, 6, 12, 2, 8, 2, 10, "dark")                   # console
+box(pedestal, 6, 12, 2, 3, 10, 13, "window")                # console screen
+# hut door on +y face: 8w x 16h (1.04 x 2.08 m — clears the 1.5 m soldier)
 for x in range(-4, 5):
-    for z in range(2, 15):
-        for y in (34, 35, 36):
-            pedestal[(x, y, z)] = CI["dark"]                   # recess
-box(pedestal, -3, 4, 35, 36, 2, 13, "steel_dark")              # door slab
-box(pedestal, -2, 3, 35, 36, 8, 11, "window")                 # door glazing
-box(pedestal, 2, 3, 35, 36, 4, 6, "dark")                     # handle
-for k in range(5):                                            # steps down +y
-    box(pedestal, -5, 6, 37 + 2 * k, 39 + 2 * k, 0, 10 - 2 * k, "concrete_light")
+    for z in range(2, 18):
+        for y in (8, 9, 10):
+            pedestal[(x, y, z)] = CI["dark"]                # recess
+box(pedestal, -3, 4, 9, 10, 2, 17, "steel_dark")            # door slab
+box(pedestal, -2, 3, 9, 10, 11, 14, "window")               # door glazing
+for k in range(4):                                          # steps
+    box(pedestal, -5, 6, 11 + 2 * k, 13 + 2 * k, 0, 8 - 2 * k, "concrete_light")
 
-# ---- slit windows on band3 (faces at +/-32), 3 per face
-for wx in (-19, -3, 13):
-    for y in (30, 31):
-        for z in range(54, 59):
-            pedestal[(wx, y, z)] = CI["window"]
-            pedestal[(wx, -31, z)] = CI["window"]
-            pedestal[(wx, -32, z)] = CI["window"]
-for wz in range(54, 59):
-    for wy in (-19, -3, 13):
-        for x in (30, 31):
-            pedestal[(x, wy, wz)] = CI["window"]
-            pedestal[(-31, wy, wz)] = CI["window"]
-            pedestal[(-32, wy, wz)] = CI["window"]
+# --- tie beams: hut top corners to the legs (single connected structure)
+for sx in (-1, 1):
+    for sy in (-1, 1):
+        line3(pedestal, (sx * 12, sy * 8, 21), (sx * 37, sy * 37, 21), 4, "concrete")
 
-# ---- cable trunking down the +x face + junction boxes
-box(pedestal, 36, 39, -10, -6, 0, 44, "dark")
-box(pedestal, 34, 37, -10, -6, 44, 66, "dark")
-box(pedestal, 36, 40, -12, -4, 20, 26, "steel_dark")
-box(pedestal, 34, 38, -12, -4, 50, 56, "steel_dark")
-
-# ---- ladder up the -y face, stepped per band to hug the batter
-for z0, z1, hw in BANDS:
-    for z in range(z0, z1):
-        pedestal[(-2, -hw, z)] = CI["steel_dark"]
-        pedestal[(2, -hw, z)] = CI["steel_dark"]
-    for z in range(z0 + 2, z1, 3):
-        for x in range(-2, 3):
-            pedestal[(x, -hw, z)] = CI["steel_dark"]
-
-# ---- rotation deck
-box(pedestal, -32, 33, -32, 33, 88, 90, "concrete")            # deck slab
-box(pedestal, -33, 34, -33, -32, 90, 91, "concrete_light")     # deck edge lip
-box(pedestal, -33, 34, 32, 34, 90, 91, "concrete_light")       # (frame strips only:
-box(pedestal, -33, -32, -33, 34, 90, 91, "concrete_light")     #  the rotating
-box(pedestal, 32, 34, -33, 34, 90, 91, "concrete_light")       #  platform needs z90)
-ring_z(pedestal, 0, 0, 32, 90, 92, "dark")                     # race ring (static gear)
-# railing posts + top rail around the deck edge (kept below the yoke sweep)
-for x in range(-31, 32, 8):
-    for y in (-31, 31):
-        box(pedestal, x, x + 1, y, y + 1, 91, 94, "steel_dark")
-        box(pedestal, y, y + 1, x, x + 1, 91, 94, "steel_dark")
-box(pedestal, -31, 32, -31, -30, 93, 94, "steel_dark")
-box(pedestal, -31, 32, 31, 32, 93, 94, "steel_dark")
-box(pedestal, -31, -30, -31, 32, 93, 94, "steel_dark")
-box(pedestal, 31, 32, -31, 32, 93, 94, "steel_dark")
-
-# ---- weathering: speckle + rust streaks under the deck lip (band4 faces)
-weather(pedestal, -38, 38, -38, 38, 0, 88, "concrete_dark")
-for rx, ry in [(-20, 29), (5, 29), (24, 28), (28, -14), (-28, 10), (12, -29)]:
-    for z in range(70, 87):
-        if (rx, ry, z) in pedestal and (rx * 31 + z * 17) % 3 == 0:
-            pedestal[(rx, ry, z)] = CI["rust"]
+# --- weathering: speckle on legs/platform, rust at brace joints
+weather(pedestal, -44, 44, -44, 44, 0, 89, "concrete_dark")
+for jx, jy, jz in [(-34, 34, 66), (34, -34, 66), (0, 40, 14), (0, -40, 14),
+                   (40, 0, 14), (-40, 0, 14)]:
+    for dx in range(-2, 3):
+        for dy in range(-2, 3):
+            for dz in range(-2, 3):
+                if (jx + dx, jy + dy, jz + dz) in pedestal and (dx * 7 + dy * 13 + dz * 5) % 4 == 0:
+                    pedestal[(jx + dx, jy + dy, jz + dz)] = CI["rust"]
 
 # ================================================================ ARRAY (traverse about z at (0,0,90))
 TILT = math.radians(TILT_DEG)
@@ -339,6 +303,22 @@ box(array, -90, -7, 6, 10, 156, 160, "steel")
 line3(array, (-58, 4, 126), (58, 4, 126), 3, "steel_dark")
 box(array, -14, -4, 0, 8, 126, 134, "steel")
 box(array, 6, 16, 0, 8, 126, 133, "steel_dark")
+# --- spec-sheet mount details
+# hydraulic piston system: vertical ram from the platform up to the yoke cross-beam
+box(array, -32, -24, 0, 8, 93, 96, "steel_dark")                # foot mount
+cyl_z(array, -28, 4, 4, 96, 112, "steel_dark")                  # barrel
+cyl_z(array, -28, 4, 2, 112, 126, "steel")                     # piston rod -> beam
+# main counterweight: drum behind the array (replaces the back box)
+cyl_x(array, 2, 150, 10, -10, 11, "steel_dark")
+cyl_x(array, 2, 150, 10, -12, -10, "steel")
+cyl_x(array, 2, 150, 10, 11, 13, "steel")
+# cable manifold: junction box on the backing where the runs converge
+box(array, -6, 7, -2, 8, 150, 160, "dark")
+for cx in range(-4, 6, 3):
+    box(array, cx, cx + 1, 0, 6, 146, 150, "dark")
+# power input: cabinet on the rotating platform
+box(array, -22, -12, 8, 18, 93, 101, "steel_dark")
+box(array, -22, -12, 8, 9, 95, 99, "dark")
 
 # ---- reflector face: paraboloid shell, 2 thick along the axis
 for u in range(-int(HW), int(HW) + 1):
