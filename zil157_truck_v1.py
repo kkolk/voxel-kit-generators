@@ -280,35 +280,20 @@ streak(chassis, 12, 0, 9, 3)
 B(cab, 5, 20, 19, 35, 12, 13, "olive")
 B(cab, 7, 8, 20, 34, 12, 13, "olive_dark")        # rail pads
 B(cab, 16, 17, 20, 34, 12, 13, "olive_dark")
-# hood
-B(cab, 7, 18, 2, 19, 12, 21, "olive")             # hood block
-B(cab, 7, 18, 2, 3, 12, 19, "olive")              # nose bevel (front lower)
-B(cab, 8, 17, 3, 19, 21, 22, "olive")             # hood crown
-B(cab, 8, 17, 3, 19, 22, 22, "olive_light")       # sun-faded top
+# hood (lowered: top z=18 so the split windscreen reads above it)
+B(cab, 7, 18, 2, 19, 12, 17, "olive")             # hood block
+B(cab, 7, 18, 2, 3, 12, 15, "olive")              # nose bevel (front lower)
+B(cab, 8, 17, 3, 19, 17, 18, "olive")             # hood crown
+B(cab, 8, 17, 3, 19, 18, 18, "olive_light")       # sun-faded top
 for ly in (6, 8, 10, 12, 14):                     # side vent louvers
     B(cab, 7, 7, ly, ly, 13, 15, "dark")
     B(cab, 18, 18, ly, ly, 13, 15, "dark")
-# "157" stencil on the -x hood face = the truck's RIGHT side (file-forward
-# -y  ==>  left = +x; the painting shows the truck's right side)
-_FONT = {
-    "1": ["010", "110", "010", "010", "111"],
-    "5": ["111", "100", "110", "001", "110"],
-    "7": ["111", "001", "010", "010", "010"],
-}
-_dy = 6
-for _ch in "157":
-    for _r, _row in enumerate(_FONT[_ch]):
-        for _c, _bit in enumerate(_row):
-            if _bit == "1":
-                p = (7, _dy + _c, 16 + (4 - _r))
-                if p in cab:
-                    cab[p] = CI["white"]
-    _dy += 4
+# (hood sides are plain olive — no stencil, per user direction)
 # radiator shell + vertical-slat grille
-B(cab, 8, 17, 2, 3, 12, 21, "olive")              # shell (bottom z=12 clears the rail tops z=11)
+B(cab, 8, 17, 2, 3, 12, 17, "olive")              # shell (bottom z=12 clears the rail tops z=11)
 for gx in range(9, 17, 2):                        # vertical slats
-    B(cab, gx, gx, 2, 3, 12, 20, "dark")
-B(cab, 8, 17, 2, 3, 20, 21, "olive_dark")         # shell top
+    B(cab, gx, gx, 2, 3, 12, 16, "dark")
+B(cab, 8, 17, 2, 3, 16, 17, "olive_dark")         # shell top
 B(cab, 8, 17, 1, 1, 13, 13, "steel_dark")         # guard bars
 B(cab, 8, 17, 1, 1, 17, 17, "steel_dark")
 # round headlights in buckets + guards
@@ -335,6 +320,12 @@ for bx0, bx1 in ((3, 5), (20, 22)):
     B(cab, bx0, bx1, 20, 34, 11, 12, "steel_dark")
     for ry in range(22, 34, 3):
         B(cab, bx0, bx1, ry, ry, 12, 12, "dark")
+# lower stirrup steps (tops z=9 -> 0.81 m; hangers tie them to the boards;
+# kept clear of the fuel tank (left, y 28+) and exhaust pipe (right, x=5))
+B(cab, 2, 4, 24, 27, 8, 9, "steel_dark")          # right stirrup (-x = right)
+B(cab, 2, 4, 24, 27, 10, 10, "steel_dark")        # right hangers
+B(cab, 20, 22, 24, 27, 8, 9, "steel_dark")        # left stirrup (+x = left)
+B(cab, 20, 22, 24, 27, 10, 10, "steel_dark")      # left hangers
 # cab lower body / doors
 B(cab, 5, 20, 19, 35, 13, 17, "olive")
 for dx in (4, 21):                                # door skins
@@ -353,13 +344,14 @@ for zi in range(17, 23):                          # split windshield, slight rak
     yy = 19 - (zi - 17) // 3
     B(cab, 6, 12, yy, yy, zi, zi, "glass")
     B(cab, 13, 19, yy, yy, zi, zi, "glass")
-# side windows + frames (sill at z=16 -> 1.44 m)
+# side windows + frames: smaller glass (7 wide x 4 tall), deeper sill and
+# pillars so the door reads mostly solid panel
 for wx in (4, 21):
-    B(cab, wx, wx, 24, 34, 17, 22, "glass")
-    B(cab, wx, wx, 24, 34, 16, 16, "olive")
-    B(cab, wx, wx, 24, 34, 23, 23, "olive")
-    B(cab, wx, wx, 23, 23, 16, 23, "olive")
-    B(cab, wx, wx, 35, 35, 16, 23, "olive")
+    B(cab, wx, wx, 26, 32, 18, 21, "glass")
+    B(cab, wx, wx, 24, 34, 16, 17, "olive")       # sill
+    B(cab, wx, wx, 24, 34, 22, 23, "olive")       # top rail
+    B(cab, wx, wx, 24, 25, 16, 23, "olive")       # front pillar
+    B(cab, wx, wx, 33, 34, 16, 23, "olive")       # rear pillar
 # roof (top z=26 -> 2.34 m)
 B(cab, 4, 20, 18, 36, 24, 26, "olive")
 B(cab, 5, 19, 19, 35, 26, 26, "olive_light")      # faded roof skin
@@ -896,7 +888,7 @@ if __name__ == "__main__":
     glass_bottom = min(p[2] for p in cab
                       if cab[p] == CI["glass"] and p[0] in (4, 21)
                       and 24 <= p[1] <= 34)   # door side windows (not headlight lenses)
-    assert (length, width, glass_bottom) == (78, 25, 17), \
+    assert (length, width, glass_bottom) == (78, 25, 18), \
         (length, width, glass_bottom)
     print(f"cab roof z=26 -> {26 * TRUCK_VOXEL:.2f} m (real 2.36 m)")
     print(f"door window glass bottom z={glass_bottom} -> "

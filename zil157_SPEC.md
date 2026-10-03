@@ -6,7 +6,9 @@ Work dir: `~/workspace/your_files/strike-bay-zil157/`
 All numbers below are MEASURED from the regenerated voxels (2026-10-03,
 7 reviewer fixes applied: breech well, traverse ±140°, frame-direction
 disambiguation, shelled canvas, measured scale table, left-hand-drive
-steering, part-separation clearance).
+steering, part-separation clearance; plus a user-directed cab revision:
+lowered hood, smaller door windows, no hood stencil, lower stirrup steps,
+windscreen above the hood line).
 
 ## Scale & frame
 
@@ -33,7 +35,7 @@ steering, part-separation clearance).
 | slug | contents | voxels | file dims (x·y·z) | components |
 |---|---|---|---|---|
 | zil157-chassis-v1 | ladder rails, 8 cross members, 3 axles + diffs, driveshafts, leaf springs, fuel tank (left), exhaust (right), bumpers, tow hooks, steering box (left) | 3,112 | 24×78×14 | 1 |
-| zil157-cab-v1 | hood + louvers + "157" stencil (−x face), slat grille + guards, headlights, fenders, split windshield, doors, mirrors, roof, bench + left-hand steering wheel, spare tire + carrier | 7,038 | 24×37×27 | 1 |
+| zil157-cab-v1 | hood + louvers (plain olive sides, no stencil), lowered hood (top z=18), slat grille + guards, headlights, fenders, split windshield above the hood line, small door windows, mirrors, roof, bench + left-hand steering wheel, running boards + lower stirrup steps, spare tire + carrier | 6,297 | 24×37×27 | 1 |
 | zil157-wheels-front-v1 | steerable pair: single tires, tread blocks, hubs, kingpins | 678 | 22×13×13 | 2 (one per wheel — genuine separate running gear) |
 | zil157-wheels-rear-v1 | bogie: 4 dual-wheel positions, tread blocks, hubs | 1,792 | 23×25×13 | 4 (one per dual position) |
 | zil157-bed-flat-v1 | wooden stake bed: plank floor, 3-board sides, headboard, tailgate, stake pockets, mudguards | 3,250 | 25×38×25 | 1 |
@@ -41,9 +43,9 @@ steering, part-separation clearance).
 | zil157-bed-technical-v1 | flatbed + AA pedestal ring (lowered headboard/tailgate/side boards + breech well for the gun sweep) | 3,047 | 25×38×21 | 1 |
 | zil157-bed-aa-turret-v1 | traversing cradle: turntable annulus, cheeks, trunnion, seat, sight, ammo boxes, handwheel | 1,018 | 15×19×31 | 1 |
 | zil157-bed-aa-barrels-v1 | elevating twin barrels: receivers, collared barrels, muzzle brakes | 1,009 | 9×44×27 | 1 |
-| zil157-assembled-flat-v1 | merged chassis+cab+wheels-front+wheels-rear+bed-flat | 15,681 | 25×78×27 | 1 |
-| zil157-assembled-covered-v1 | merged chassis+cab+wheels+bed-covered | 18,661 | 25×78×31 | 1 |
-| zil157-assembled-technical-v1 | merged chassis+cab+wheels+bed-technical+aa-turret+aa-barrels | 17,399 | 25×89×31 | 1 |
+| zil157-assembled-flat-v1 | merged chassis+cab+wheels-front+wheels-rear+bed-flat | 14,940 | 25×78×27 | 1 |
+| zil157-assembled-covered-v1 | merged chassis+cab+wheels+bed-covered | 17,920 | 25×78×31 | 1 |
+| zil157-assembled-technical-v1 | merged chassis+cab+wheels+bed-technical+aa-turret+aa-barrels | 16,658 | 25×89×31 | 1 |
 
 Palette (21 named entries; the viewer Assemblies sidebar derives from these):
 olive, olive_dark, olive_light, rust, rust_dark, tire, tire_side, steel,
@@ -83,22 +85,25 @@ canvas_dark, glass, white, window, brass, red.
 | overall length 78 vox (y 0–77 incl. rear tow hitch) | 7.02 m | 6.93 m (Δ +0.09, the hitch) |
 | width 25 vox (bed x 0–24) | 2.25 m | 2.32 m (Δ −0.07) |
 | cab roof z=26 | 2.34 m | 2.36 m ✓ |
-| door window glass bottom z=17 | 1.53 m | — (soldier 25 vox = 1.50 m; glass starts just above the soldier's head) |
+| door window glass bottom z=18 | 1.62 m | — (soldier 25 vox = 1.50 m; glass starts above the soldier's head) |
+| hood top z=18 | 1.62 m | — (cab roof 2.34 m; windscreen glass z 17–22 reads above the hood) |
+| stirrup step top z=9 | 0.81 m | — (two-step climb: ground → 0.81 → board 1.08 → cab floor) |
 | wheel diameter 13 vox | 1.17 m | 1.20 m ✓ |
 | diff pumpkin bottom z=3 | 0.27 m | clearance 0.31 m ✓ |
 | front axle → bogie center 41 vox | 3.69 m | 3.66 m ✓ |
 | bogie axle spacing 12 vox | 1.08 m | 1.12 m ✓ |
 
 (The generator computes length/width/glass-bottom from its vox dicts and
-asserts 78/25/17.)
+asserts 78/25/18.)
 
 ## Clearance validation (all numeric, from the generator's self-check)
 
-- **chassis∩cab separation**: **0 intersecting voxels** (was 75 over z 7–14).
-  The radiator shell bottom was raised to z=12, the steering box moved to the
+- **chassis∩cab separation**: **0 intersecting voxels** (51 removed this
+  revision; was 75 in v1). The radiator shell bottom was raised to z=12, the steering box moved to the
   left rail (top z=11, flush), and the remaining overlaps were carved out of
-  the cab: exhaust pipe vs front mudflap (4), fuel-tank top/straps/filler cap
-  vs running board (20), driveshaft vs spare-tire carrier bracket (27).
+  the cab: exhaust pipe vs front mudflap, fuel-tank top/straps/filler cap
+  vs running board, driveshaft vs spare-tire carrier bracket, plus the new
+  stirrup steps vs fuel tank (left) and exhaust pipe (right).
   The intersection is now only the intended mounting pads (adjacent, z=12 on
   rail tops z=11 — 208 contact voxels, pads themselves 120/120 intact).
 - **Steering sweep**: each front tire rotated ±30° about its kingpin
@@ -128,6 +133,32 @@ asserts 78/25/17.)
   briefly orphaned the right cheek cap's front; it is bridged sideways onto
   the right ammo-box lid with 4 sweep-clear voxels — turret back to 1.)
 
+## Cab revision (2026-10-03, user-directed)
+
+Kevin's five cab fixes, applied to `zil157-cab-v1` (7,038 → 6,297 vox, Δ −741;
+the three assembled unions re-merged with identical deltas):
+
+1. **Door windows smaller**: side glass 11×6 (y 24–34, z 17–22) → 7×4
+   (y 26–32, z 18–21); deeper sill (z 16–17), top rail (z 22–23), front/rear
+   pillars (y 24–25 / 33–34). Door reads mostly solid panel.
+2. **Lower step**: running boards stay at z 11–12 (frame-rail level; the fuel
+   tank blocks lowering them), stirrup steps hung below at z 8–9 (tops
+   0.81 m) with hangers, clear of the fuel tank (left, y 28+) and exhaust
+   pipe (right, x=5). Steering sweep re-verified: 0 hits ±30°.
+3. **Hood stencil removed**: the white "157" recolor code deleted; 0 white
+   voxels in the cab .vox.
+4. **Hood shorter**: hood block z 12–21 → 12–17, crown top z=22 → 18
+   (1.62 m); radiator shell/slats/headlight guards lowered to match.
+5. **Windscreen above the hood**: glass z 17–22 unchanged; with the hood top
+   at z=18, 4+ voxels of both split panes read above the hood line from a
+   front view — the truck reads drivable. Verified on the front elevation
+   render and the isometric preview against the reference painting.
+
+Pivots unchanged (STEER_L/R, TRAVERSE_PIVOT, ELEVATION_PIVOT); AA traverse
+±140° / elevation −5°…+80° re-verified with 0 unintended hits; cab still one
+6-connected component; interface contacts unchanged (cab pads 208 on rail
+tops).
+
 ## Style notes
 
 Weathered Soviet olive-drab: flat shading + olive_light sun-fade on upward faces,
@@ -136,11 +167,8 @@ headlight buckets, stake pockets and the fuel tank (recolor-only, no floaters).
 Wooden bed in grey-brown weathered planks with dark plank gaps; faded-olive canvas
 (2-voxel shell over the 4-hoop profile, hollow interior — 8.3% buried vs 44.5%
 before) with hoop rib shading and tie-downs on the closed rear flap. Tires near-black with
-lighter sidewall rings + tread blocks. Glass pale blue-grey. White "157" stencil on
-the −x hood face — the truck's RIGHT side (file-forward −y ⇒ left = +x), matching
-the reference painting's visible side (24 white voxels, verified legible in the
-side ortho render). Steering wheel + column on the LEFT (+x) side: left-hand drive.
-No star, per the reference painting.
+lighter sidewall rings + tread blocks. Glass pale blue-grey.
+No star, no hood stencil, per the reference painting and user direction.
 
 ## Files
 
