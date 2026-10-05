@@ -252,15 +252,13 @@ def awning(vox, x0=1, x1=11):
     """Torn striped awning, 3 proud of the face. z local 6..8."""
     B(vox, 2, 3, -1, 0, 7, 8, "iron")
     B(vox, 9, 10, -1, 0, 7, 8, "iron")
-    xs = list(range(x0, x1, 2))
-    n = len(xs)
-    for j, x in enumerate(xs):
-        col = "awn_a" if (j % 2 == 0) else "awn_b"
+    i = 0
+    for x in range(x0, x1, 2):
+        col = "awn_a" if (i % 2 == 0) else "awn_b"
         B(vox, x, min(x + 2, x1), -2, 0, 7, 8, col)
-        # torn outer edge (shares z with inner strip) — symmetric: tear the
-        # stripes whose distance from the nearer end is even
-        if min(j, n - 1 - j) % 2 == 0:
+        if (x + i) % 4 != 0:  # torn outer edge (shares z with inner strip)
             B(vox, x, min(x + 2, x1), -4, -2, 6, 8, col)
+        i += 1
 
 
 def sign_band(vox, x0=0, x1=12):
