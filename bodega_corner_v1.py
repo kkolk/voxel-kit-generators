@@ -470,7 +470,7 @@ def u_balcony():
     for px in (3, 5, 7, 9):                    # railing posts, even 2-splits
         B(v, px, px + 1, -2, -1, 0, 3, "iron")
     B(v, 3, 10, -2, -1, 2, 3, "iron")          # top rail
-    B(v, 3, 10, -2, -1, 1, 2, "iron")          # mid rail
+    # (mid rail removed per viewer diff #1, 2026-10-05 — user cut it in edit mode)
     B(v, 3, 4, -2, 0, 2, 3, "iron")           # side rails
     B(v, 9, 10, -2, 0, 2, 3, "iron")
     B(v, 3, 4, -1, 0, -3, -1, "stone")        # corbels
