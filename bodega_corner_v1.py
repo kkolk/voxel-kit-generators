@@ -252,13 +252,15 @@ def awning(vox, x0=1, x1=11):
     """Torn striped awning, 3 proud of the face. z local 6..8."""
     B(vox, 2, 3, -1, 0, 7, 8, "iron")
     B(vox, 9, 10, -1, 0, 7, 8, "iron")
-    i = 0
-    for x in range(x0, x1, 2):
-        col = "awn_a" if (i % 2 == 0) else "awn_b"
+    xs = list(range(x0, x1, 2))
+    n = len(xs)
+    for j, x in enumerate(xs):
+        col = "awn_a" if (j % 2 == 0) else "awn_b"
         B(vox, x, min(x + 2, x1), -2, 0, 7, 8, col)
-        if (x + i) % 4 != 0:  # torn outer edge (shares z with inner strip)
+        # torn outer edge (shares z with inner strip) — symmetric: tear the
+        # stripes whose distance from the nearer end is even
+        if min(j, n - 1 - j) % 2 == 0:
             B(vox, x, min(x + 2, x1), -4, -2, 6, 8, col)
-        i += 1
 
 
 def sign_band(vox, x0=0, x1=12):
@@ -463,16 +465,16 @@ def u_balcony():
     B(v, 4, 8, 1, 2, 0, 7, "teal")             # French door frame, 1 deep
     B(v, 5, 7, 1, 2, 1, 6, "glass_dark")       # glazing
     B(v, 5, 7, 1, 2, 3, 4, "teal")             # mid bar
-    B(v, 3, 9, -1, 2, 0, 1, "stone")          # door sill
-    B(v, 3, 9, -2, 0, -1, 0, "stone")         # balcony slab (2 proud)
-    for px in (3, 5, 7, 8):                    # railing posts
+    B(v, 3, 10, -1, 2, 0, 1, "stone")          # door sill
+    B(v, 3, 10, -2, 0, -1, 0, "stone")         # balcony slab (2 proud)
+    for px in (3, 5, 7, 9):                    # railing posts, even 2-splits
         B(v, px, px + 1, -2, -1, 0, 3, "iron")
-    B(v, 3, 9, -2, -1, 2, 3, "iron")          # top rail
-    B(v, 3, 9, -2, -1, 1, 2, "iron")          # mid rail
+    B(v, 3, 10, -2, -1, 2, 3, "iron")          # top rail
+    B(v, 3, 10, -2, -1, 1, 2, "iron")          # mid rail
     B(v, 3, 4, -2, 0, 2, 3, "iron")           # side rails
-    B(v, 8, 9, -2, 0, 2, 3, "iron")
+    B(v, 9, 10, -2, 0, 2, 3, "iron")
     B(v, 3, 4, -1, 0, -3, -1, "stone")        # corbels
-    B(v, 8, 9, -1, 0, -3, -1, "stone")
+    B(v, 9, 10, -1, 0, -3, -1, "stone")
     shutter_window(v, 1, 3, 0)                 # flanking windows
     shutter_window(v, 9, 11, 0)
     B(v, 3, 4, 0, 1, 5, 8, "rust")  # streak under the band
