@@ -16,9 +16,15 @@ FACTORY-KIT METHOD, town content:
   written whole by the corner module; the L's inside notch is closed by a
   dedicated 2x2 pier tile. Protrusions along the wall-face normal are the
   design (balcony slab 2, awning 3, sills/cornice/coping 1) — never sideways.
-  Shells are hollow; every bay carries a sealed buried interior room
-  (4x4, walls z 1..7) for damage reveals — shop-styled below, room-styled
-  above. NO LETTERING anywhere (mirror-text lesson): the sign band is blank.
+  Interiors are WIDE OPEN (no buried rooms): a full stone ground slab at
+  z 0..1 and a wood-plank floor slab at the top voxel of every story band
+  (z 9..10, 19..20, 29..30, 39..40 — each story's ceiling is the floor
+  above; the top slab is the roof deck under the cornice). Slabs are inset
+  2 from walled faces and run full to bay lines on open faces, so neighbours
+  meet without overlap. Every window and glazed door is inset 1 voxel: the
+  opening is punched through the outer wall voxel and the glass/frame/
+  shutters sit 1 deep, a real 1-deep reveal, not a painted-on face.
+  NO LETTERING anywhere (mirror-text lesson): the sign band is blank.
 
 PARTS (18): 5 ground + 4 upper + 2 cornice + 2 parapet + 2 notch pier +
 3 roof props. Each is written as its own .vox (work dir, for inspection and
@@ -49,6 +55,7 @@ PALETTE = [
     ("rust",         (150,  88,  52)),  # 17 weathering streaks
     ("coping",       (208, 202, 192)),  # 18 cornice / parapet coping
     ("roof",         (102, 104, 100)),  # 19 roof slab grey
+    ("wood_floor",   (150, 112,  74)),  # 20 upper floor planks
 ]
 
 C = {name: i + 1 for i, (name, _) in enumerate(PALETTE)}
@@ -211,36 +218,24 @@ def render_slice(path, vox, palette, z):
 
 
 # ---------------------------------------------------------------- shared bits
-def floor_edge(vox):
-    """Perimeter floor strips, T wide, z 0..1."""
-    B(vox, 0, 12, 0, 2, 0, 1, "stone_dark")
-    B(vox, 0, 12, 10, 12, 0, 1, "stone_dark")
-    B(vox, 0, 2, 2, 10, 0, 1, "stone_dark")
-    B(vox, 10, 12, 2, 10, 0, 1, "stone_dark")
+def cut(vox, x0, x1, y0, y1, z0, z1):
+    """Punch an opening: delete voxels in the inclusive-exclusive box."""
+    for x in range(int(x0), int(x1)):
+        for y in range(int(y0), int(y1)):
+            for z in range(int(z0), int(z1)):
+                vox.pop((x, y, z), None)
 
 
-def buried_room(vox, x0=6, y0=2, style="shop"):
-    """Sealed 4x4 interior room, walls z 1..7 on floor strips (damage reveal)."""
-    # floor strips under room walls
-    B(vox, x0, x0 + 4, y0, y0 + 1, 0, 1, "stone_dark")
-    B(vox, x0, x0 + 4, y0 + 3, y0 + 4, 0, 1, "stone_dark")
-    B(vox, x0, x0 + 1, y0 + 1, y0 + 3, 0, 1, "stone_dark")
-    B(vox, x0 + 3, x0 + 4, y0 + 1, y0 + 3, 0, 1, "stone_dark")
-    # walls
-    B(vox, x0, x0 + 4, y0, y0 + 1, 1, 7, "plaster_dark")
-    B(vox, x0, x0 + 4, y0 + 3, y0 + 4, 1, 7, "plaster_dark")
-    B(vox, x0, x0 + 1, y0 + 1, y0 + 3, 1, 7, "plaster_dark")
-    B(vox, x0 + 3, x0 + 4, y0 + 1, y0 + 3, 1, 7, "plaster_dark")
-    # styled contents
-    if style == "shop":
-        B(vox, x0 + 1, x0 + 2, y0 + 1, y0 + 2, 1, 3, "sack")
-        B(vox, x0 + 2, x0 + 3, y0 + 2, y0 + 3, 1, 2, "wood")
-    else:
-        B(vox, x0 + 1, x0 + 3, y0 + 1, y0 + 3, 3, 4, "wood")      # table top
-        for lx in (x0 + 1, x0 + 2):
-            for ly in (y0 + 1, y0 + 2):
-                B(vox, lx, lx + 1, ly, ly + 1, 1, 3, "wood_dark")  # legs
-        B(vox, x0 + 2, x0 + 3, y0 + 1, y0 + 2, 1, 2, "wood")       # crate
+def ground_slab(vox):
+    """Full-bay ground slab, z 0..1, stone."""
+    B(vox, 0, 12, 0, 12, 0, 1, "stone_dark")
+
+
+def story_slab(vox, south=True, west=False):
+    """Upper floor slab at local z 9..10 (this story's ceiling = the floor
+    above), wood plank. Inset 2 from walled faces; runs full to bay lines on
+    open faces so neighbouring slabs meet without overlap."""
+    B(vox, 2 if west else 0, 12, 2 if south else 0, 12, 9, 10, "wood_floor")
 
 
 def peel(vox, patches):
@@ -289,9 +284,12 @@ def barrel(vox, x0, y0):
 
 
 def shutter_window(vox, x0, x1, s, sill=True):
-    """Closed teal shutters in a plaster wall. z s+2..s+7."""
-    B(vox, x0, x1, 0, 1, s + 2, s + 7, "teal")
-    B(vox, x0, x1, 0, 1, s + 4, s + 5, "teal_dark")  # slat line
+    """Shuttered window inset 1 voxel: the opening is punched through the
+    outer wall voxel (y 0..1) and the shutters sit 1 deep (y 1..2), giving a
+    1-deep plaster reveal instead of a painted-on face. z s+2..s+7."""
+    cut(vox, x0, x1, 0, 1, s + 2, s + 7)
+    B(vox, x0, x1, 1, 2, s + 2, s + 7, "teal")
+    B(vox, x0, x1, 1, 2, s + 4, s + 5, "teal_dark")  # slat line
     if sill:
         B(vox, x0 - 1, x1 + 1, -1, 2, s + 1, s + 2, "stone")
 
@@ -305,7 +303,8 @@ def band(vox, s, x0=0, x1=12):
 def g_arcade():
     """Arcade bay, faces S. 2 arches, blank sign band, awning, shop interior."""
     v = {}
-    floor_edge(v)
+    ground_slab(v)
+    story_slab(v)
     B(v, 0, 12, -1, 2, 0, 1, "stone")          # threshold, proud 1
     for px0, px1 in ((0, 1), (5, 7), (11, 12)):  # piers (half at bay edges)
         B(v, px0, px1, 0, 2, 1, 8, "stone")
@@ -324,7 +323,6 @@ def g_arcade():
     B(v, 1, 2, 6, 7, 2, 3, "sack")
     barrel(v, 3, 4)                              # barrel
     B(v, 4, 6, 2, 4, 0, 2, "wood")              # crates
-    buried_room(v, 6, 2, "shop")
     peel(v, [(8, 9, 2, 1)])
     return v
 
@@ -332,7 +330,8 @@ def g_arcade():
 def g_arcade_corner():
     """Arcade corner, faces S+W. Corner column whole; awning on S face."""
     v = {}
-    floor_edge(v)
+    ground_slab(v)
+    story_slab(v, south=True, west=True)
     B(v, -1, 2, -1, 2, 0, 1, "stone")          # corner base, proud both faces
     B(v, 0, 2, 0, 2, 1, 10, "stone")           # corner column whole
     B(v, 0, 2, 0, 2, 8, 9, "coping")           # capital course
@@ -364,14 +363,14 @@ def g_arcade_corner():
     B(v, 3, 5, 6, 8, 0, 2, "sack")
     B(v, 8, 10, 7, 9, 0, 2, "sack")
     barrel(v, 3, 3)
-    buried_room(v, 6, 2, "shop")
     return v
 
 
 def g_shopfront():
     """Open shopfront bay, faces S. Wide opening, wood lintel, sign band."""
     v = {}
-    floor_edge(v)
+    ground_slab(v)
+    story_slab(v)
     B(v, 0, 12, -1, 2, 0, 1, "stone")
     B(v, 0, 2, 0, 2, 1, 9, "stone")            # side piers
     B(v, 10, 12, 0, 2, 1, 9, "stone")
@@ -387,33 +386,34 @@ def g_shopfront():
     B(v, 2, 4, 6, 8, 0, 2, "sack")
     barrel(v, 8, 6)
     B(v, 4, 6, 3, 5, 0, 2, "wood")              # crates
-    buried_room(v, 6, 2, "shop")
     return v
 
 
 def g_stair():
     """Entry bay to upper floors, faces S. Wood door, barred transom, steps."""
     v = {}
-    floor_edge(v)
+    ground_slab(v)
+    story_slab(v)
     B(v, 0, 12, -1, 2, 0, 1, "stone")
     B(v, 0, 12, 0, 2, 0, 10, "plaster")
     B(v, 2, 3, 0, 2, 1, 8, "stone")            # door surround
     B(v, 7, 8, 0, 2, 1, 8, "stone")
     B(v, 2, 8, 0, 2, 7, 8, "stone")
-    B(v, 3, 7, 0, 1, 1, 7, "wood")             # door leaf
-    B(v, 3, 7, 0, 1, 2, 3, "wood_dark")        # panels
-    B(v, 3, 7, 0, 1, 5, 6, "wood_dark")
-    B(v, 6, 7, 0, 1, 3, 4, "iron_dark")        # handle
-    # barred transom window
-    B(v, 8, 11, 0, 1, 4, 6, "glass_dark")
-    B(v, 9, 10, 0, 1, 4, 6, "iron")
-    B(v, 8, 11, 0, 1, 5, 6, "iron")
+    cut(v, 3, 7, 0, 1, 1, 7)                   # punch outer voxel
+    B(v, 3, 7, 1, 2, 1, 7, "wood")             # door leaf, 1 deep
+    B(v, 3, 7, 1, 2, 2, 3, "wood_dark")        # panels
+    B(v, 3, 7, 1, 2, 5, 6, "wood_dark")
+    B(v, 6, 7, 1, 2, 3, 4, "iron_dark")        # handle
+    # barred transom window, inset 1
+    cut(v, 8, 11, 0, 1, 4, 6)
+    B(v, 8, 11, 1, 2, 4, 6, "glass_dark")
+    B(v, 9, 10, 1, 2, 4, 6, "iron")
+    B(v, 8, 11, 1, 2, 5, 6, "iron")
     B(v, 8, 12, -1, 2, 3, 4, "stone")          # sill
     # interior steps up (each lands on the last)
     B(v, 2, 6, 8, 10, 0, 1, "wood")
     B(v, 2, 6, 7, 9, 1, 2, "wood")
     B(v, 2, 6, 6, 8, 2, 3, "wood")
-    buried_room(v, 6, 2, "shop")
     peel(v, [(9, 8, 2, 1)])
     return v
 
@@ -421,18 +421,20 @@ def g_stair():
 def g_plain():
     """Plain back/side bay, faces S. Shuttered window + wood back door."""
     v = {}
-    floor_edge(v)
+    ground_slab(v)
+    story_slab(v)
     B(v, 0, 12, -1, 2, 0, 1, "stone")
     B(v, 0, 12, 0, 2, 0, 10, "plaster")
-    B(v, 4, 7, 0, 1, 3, 6, "teal")             # closed shutters
-    B(v, 4, 7, 0, 1, 4, 5, "teal_dark")
+    cut(v, 4, 7, 0, 1, 3, 6)                   # punch outer voxel
+    B(v, 4, 7, 1, 2, 3, 6, "teal")             # closed shutters, 1 deep
+    B(v, 4, 7, 1, 2, 4, 5, "teal_dark")
     B(v, 3, 8, -1, 2, 2, 3, "stone")           # sill
-    B(v, 8, 10, 0, 1, 1, 5, "wood")            # back door
-    B(v, 8, 10, 0, 1, 2, 3, "wood_dark")
+    cut(v, 8, 10, 0, 1, 1, 5)
+    B(v, 8, 10, 1, 2, 1, 5, "wood")            # back door, 1 deep
+    B(v, 8, 10, 1, 2, 2, 3, "wood_dark")
     B(v, 7, 11, 0, 2, 5, 6, "stone")           # lintel
     B(v, 2, 4, 8, 10, 0, 2, "wood")            # crates
     B(v, 8, 10, 8, 10, 0, 2, "sack")           # sacks
-    buried_room(v, 6, 2, "shop")
     peel(v, [(1, 6, 2, 2), (9, 7, 2, 1)])
     rust_streak(v, 4, 2, 2)
     return v
@@ -442,12 +444,12 @@ def g_plain():
 def u_shutter():
     """Shutter bay, faces S. 2 closed-shutter windows + teal band."""
     v = {}
+    story_slab(v)
     B(v, 0, 12, 0, 2, 0, 10, "plaster")
     shutter_window(v, 2, 5, 0)
     shutter_window(v, 7, 10, 0)
     B(v, 5, 6, 0, 1, 5, 8, "rust")  # streak under the band
     band(v, 0)
-    buried_room(v, 6, 2, "room")
     peel(v, [(0, 2, 2, 2), (10, 5, 2, 1)])
     return v
 
@@ -455,10 +457,12 @@ def u_shutter():
 def u_balcony():
     """Balcony bay, faces S. French door + wrought-iron balcony."""
     v = {}
+    story_slab(v)
     B(v, 0, 12, 0, 2, 0, 10, "plaster")
-    B(v, 4, 8, 0, 1, 0, 7, "teal")            # French door
-    B(v, 5, 7, 0, 1, 1, 6, "glass_dark")
-    B(v, 5, 7, 0, 1, 3, 4, "teal")            # mid bar
+    cut(v, 4, 8, 0, 1, 0, 7)                   # punch outer voxel
+    B(v, 4, 8, 1, 2, 0, 7, "teal")             # French door frame, 1 deep
+    B(v, 5, 7, 1, 2, 1, 6, "glass_dark")       # glazing
+    B(v, 5, 7, 1, 2, 3, 4, "teal")             # mid bar
     B(v, 3, 9, -1, 2, 0, 1, "stone")          # door sill
     B(v, 3, 9, -2, 0, -1, 0, "stone")         # balcony slab (2 proud)
     for px in (3, 5, 7, 8):                    # railing posts
@@ -473,27 +477,27 @@ def u_balcony():
     shutter_window(v, 9, 11, 0)
     B(v, 3, 4, 0, 1, 5, 8, "rust")  # streak under the band
     band(v, 0)
-    buried_room(v, 6, 2, "room")
-    peel(v, [(0, 6, 2, 1)])
+    peel(v, [(0, 6, 1, 1)])
     return v
 
 
 def u_barred():
     """Barred-window bay, faces S. Iron bars + folded-open shutters."""
     v = {}
+    story_slab(v)
     B(v, 0, 12, 0, 2, 0, 10, "plaster")
     for x0 in (2, 7):
-        B(v, x0, x0 + 3, 0, 1, 2, 7, "glass_dark")
-        B(v, x0 + 1, x0 + 2, 0, 1, 2, 7, "iron")   # bars
-        B(v, x0, x0 + 3, 0, 1, 4, 5, "iron")
+        cut(v, x0, x0 + 3, 0, 1, 2, 7)            # punch outer voxel
+        B(v, x0, x0 + 3, 1, 2, 2, 7, "glass_dark")  # glazing, 1 deep
+        B(v, x0 + 1, x0 + 2, 1, 2, 2, 7, "iron")   # bars
+        B(v, x0, x0 + 3, 1, 2, 4, 5, "iron")
         B(v, x0 - 2, x0, 0, 1, 2, 7, "teal")       # folded-open shutter
-        B(v, x0 - 2, x0, 0, 1, 4, 5, "teal_dark")
+        B(v, x0 - 2, x0, 0, 1, 4, 5, "teal_dark")   # (surface-mounted on face)
         B(v, x0 - 1, x0 + 4, -1, 2, 1, 2, "stone")  # sill
     B(v, 6, 7, 0, 1, 5, 8, "rust")  # streak under the band
     B(v, 10, 12, 0, 1, 2, 7, "teal")           # right shutter, 2nd window
     B(v, 10, 12, 0, 1, 4, 5, "teal_dark")
     band(v, 0)
-    buried_room(v, 6, 2, "room")
     peel(v, [(5, 1, 2, 2)])
     return v
 
@@ -501,17 +505,18 @@ def u_barred():
 def u_corner():
     """Upper corner, faces S+W. Corner column whole, shuttered windows."""
     v = {}
+    story_slab(v, south=True, west=True)
     B(v, 0, 2, 0, 2, 0, 10, "plaster")        # corner column whole
     B(v, 2, 12, 0, 2, 0, 10, "plaster")       # south wall
     B(v, 0, 2, 2, 12, 0, 10, "plaster")       # west wall
     shutter_window(v, 6, 9, 0)                 # south window
-    B(v, 0, 1, 6, 9, 2, 7, "teal")            # west window shutters
-    B(v, 0, 1, 6, 9, 4, 5, "teal_dark")
+    cut(v, 0, 1, 6, 9, 2, 7)                  # west opening, punch outer voxel
+    B(v, 1, 2, 6, 9, 2, 7, "teal")            # west shutters, 1 deep
+    B(v, 1, 2, 6, 9, 4, 5, "teal_dark")
     B(v, -1, 2, 5, 10, 1, 2, "stone")         # west sill
     B(v, 4, 5, 0, 1, 5, 8, "rust")  # streak under the band
     band(v, 0, 2, 12)                          # south band
     B(v, 0, 1, 2, 12, 8, 9, "teal")           # west band
-    buried_room(v, 6, 2, "room")
     peel(v, [(3, 2, 2, 1)])
     return v
 
@@ -752,6 +757,6 @@ if __name__ == "__main__":
     write_vox(os.path.join(HERE, "bodega-corner-v1.vox"), world, PALETTE)
     render_preview(os.path.join(HERE, "bodega-corner-v1_preview.png"),
                    world, PALETTE, scale=6)
-    for z in (5, 15, 41, 44):
+    for z in (5, 9, 15, 41, 44):
         render_slice(os.path.join(HERE, f"bodega-corner-v1_slice_z{z:02d}.png"),
                      world, PALETTE, z)

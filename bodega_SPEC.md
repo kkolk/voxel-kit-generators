@@ -5,6 +5,11 @@ corner tenement with a ground-floor bodega behind an arched arcade.
 Off the user's bodega-corner concept painting (ochre plaster, teal trim,
 stone arcade, striped awning, tinacos + TV antennas on the roof).
 
+**Revision 2026-10-05 (user-directed):** buried interior rooms removed —
+interiors are wide open with real floor slabs (stone ground slab z 0..1,
+wood-plank slabs at z 9/19/29/39..40); every window and glazed door is
+inset 1 voxel (punched opening, 1-deep reveal).
+
 ## Grid contract (inherited from the factory kit)
 
 - **B = 12** bay, **S = 10** story, **T = 2** wall, **z-up**, origin at the
@@ -20,10 +25,16 @@ stone arcade, striped awning, tinacos + TV antennas on the roof).
 - **Protrusions along the wall-face normal are the design** (documented,
   never sideways): balcony slab 2, awning 3, sills/cornice/coping 1,
   awning brackets 1, sign band flush.
-- Shells are **hollow** (walls + floor-edge strips only). Every bay carries
-  one sealed **buried interior room** (4×4, walls z 1..7 on floor strips)
-  for damage reveals — shop-styled on the ground floor (sacks, crates),
-  room-styled above (table, crate).
+- **Interiors are wide open** (no buried rooms): a full stone ground slab
+  at z 0..1, plus a wood-plank floor slab at the top voxel of every story
+  band (z 9..10, 19..20, 29..30, 39..40) — each story's ceiling is the
+  floor above; the top slab is the roof deck under the cornice. Slabs are
+  inset 2 from walled faces and run full to bay lines on open faces, so
+  neighbouring slabs meet without overlap.
+- **Every window and glazed door is inset 1 voxel**: the opening is punched
+  through the outer wall voxel and the glass/frame/shutters sit 1 deep —
+  a real 1-deep plaster reveal, not a painted-on face. Sills stay proud 1
+  (allowed trim); balcony railings stay proud as before.
 - **No lettering on any voxel build** (mirror-text lesson, harbor 2026-10-04):
   the sign band is a blank teal board.
 
@@ -86,7 +97,7 @@ Roof props (base z=0, seated on slab z=43):
 | bodega-prop-antenna | TV antenna: iron mast + crossbars |
 | bodega-prop-crates | wood crate cluster |
 
-## Palette (19 slots, literal PALETTE in the generator)
+## Palette (20 slots, literal PALETTE in the generator)
 
 plaster (198,162,102) · plaster_dark (156,122,76) · teal (104,158,150) ·
 teal_dark (68,110,104) · stone (172,164,148) · stone_dark (124,116,100) ·
@@ -94,7 +105,7 @@ wood (128,94,62) · wood_dark (86,62,40) · iron (56,58,64) ·
 iron_dark (32,34,40) · glass (110,142,152) · glass_dark (38,54,68) ·
 sack (178,154,110) · awn_a (140,190,182) · awn_b (238,232,218) ·
 tinaco (40,40,46) · rust (150,88,52) · coping (208,202,192) ·
-roof (102,104,100)
+roof (102,104,100) · wood_floor (150,112,74)
 
 ## Preview assemblies (bodega-corner-v1.vox)
 
