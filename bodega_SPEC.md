@@ -121,3 +121,25 @@ roof (102,104,100) · wood_floor (150,112,74)
 Viewer: exactly ONE entry, slug `bodega-corner-v1`
 ("Bodega Corner (tileset preview)"). Individual part .vox files live in
 this work dir for inspection and gluing; they are not separate entries.
+
+## Material variants (v2, 2026-10-05, user-directed)
+
+Same 18-part geometry, same grid — new skins only. Implemented as a
+`VARIANT` parameter in the generator (`bodega` | `cement` | `brick` |
+`mural`; one run builds all four). Geometry builders always emit
+canonical bodega-skin color names; each variant remaps a subset to
+variant colors appended to the palette. File stems:
+`bodega-corner-{variant}-v1.vox` (+ `_preview.png`, + stem-matched
+`bodega-corner-{variant}-v1.py` so the viewer's static PALETTE parse
+derives the right color names); parts `bodega-{variant}-<part>.vox`.
+
+| variant | wall | trim | awning | extras |
+|---|---|---|---|---|
+| cement | bare concrete gray | weathered gray (no teal left) | gray / off-white | the quietest skin |
+| brick | exposed red-brown brick | faded off-white painted trim | weathered canvas teal/cream | — |
+| mural | flagship turquoise | teal kept | original canvas | deterministic coral-pink paint patches on exterior wall faces (hash-based 4×4 blotches, never on trim/glass/interiors); one large faded white 5-point star on the square building's south face (rasterized, hash-weathered, no lettering) |
+
+All variants: 29,336 voxels per assembly (recolor-only — file diffs vs the
+original show 0 added / 0 removed voxels), 0 floaters on every part and
+assembly. Viewer ids: cement 296, brick 297, mural 298 (separate entries,
+not replacements).

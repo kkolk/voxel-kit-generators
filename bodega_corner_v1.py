@@ -61,6 +61,97 @@ PALETTE = [
 C = {name: i + 1 for i, (name, _) in enumerate(PALETTE)}
 
 
+# ---------------------------------------------------------------- material variants
+# Geometry builders always emit canonical (bodega-skin) color names; each
+# variant remaps a subset to variant colors appended to the palette. The
+# "mural" skin additionally gets painted detail passes (pink patches per
+# part, propaganda star per assembly). New skins only — geometry untouched.
+
+VARIANT_EXTRA = {
+    "cement": [
+        ("concrete",       (170, 169, 161)),  # 21 drab bare concrete
+        ("concrete_dark",  (131, 130, 122)),  # 22
+        ("trim_gray",      (146, 145, 137)),  # 23 weathered gray trim
+        ("trim_gray_dark", (106, 105,  97)),  # 24
+        ("awn_gray",       (148, 146, 138)),  # 25 faded awning stripe
+        ("awn_offwhite",   (210, 206, 196)),  # 26
+    ],
+    "brick": [
+        ("brick",           (150,  88,  64)),  # 21 exposed red-brown brick
+        ("brick_dark",      (112,  62,  46)),  # 22 mortar shadow
+        ("trim_white",      (219, 213, 199)),  # 23 faded off-white painted trim
+        ("trim_white_dark", (171, 165, 151)),  # 24
+        ("awn_faded_teal",  (120, 150, 144)),  # 25 sun-bleached canvas
+        ("awn_faded_cream", (213, 203, 183)),  # 26
+    ],
+    "mural": [
+        ("turquoise",      (126, 198, 190)),  # 21 flagship turquoise plaster
+        ("patch_concrete", (158, 148, 134)),  # 22 exposed concrete under paint
+        ("patch_pink",     (234, 174, 172)),  # 23 faded coral-pink paint patches
+        ("star_white",     (231, 225, 213)),  # 24 weathered propaganda star
+    ],
+}
+
+VARIANT_REMAP = {
+    "cement": {"plaster": "concrete", "plaster_dark": "concrete_dark",
+               "teal": "trim_gray", "teal_dark": "trim_gray_dark",
+               "awn_a": "awn_gray", "awn_b": "awn_offwhite"},
+    "brick": {"plaster": "brick", "plaster_dark": "brick_dark",
+              "teal": "trim_white", "teal_dark": "trim_white_dark",
+              "awn_a": "awn_faded_teal", "awn_b": "awn_faded_cream"},
+    "mural": {"plaster": "turquoise", "plaster_dark": "patch_concrete"},
+}
+
+VARIANTS = ("bodega", "cement", "brick", "mural")
+
+
+def variant_palette(name):
+    """Full (name, rgb) palette for a variant: base + variant extras."""
+    if name == "bodega":
+        return list(PALETTE)
+    return list(PALETTE) + list(VARIANT_EXTRA[name])
+
+
+def variant_index(name):
+    """(palette, name->index, canonical-index->variant-index remap)."""
+    pal = variant_palette(name)
+    idx = {n: i + 1 for i, (n, _) in enumerate(pal)}
+    base = {n: i + 1 for i, (n, _) in enumerate(PALETTE)}
+    rmap = {base[c]: idx[v] for c, v in VARIANT_REMAP.get(name, {}).items()}
+    return pal, idx, rmap
+
+
+def apply_variant(part, variant):
+    """Remap a canonical part dict to variant color indices."""
+    if variant == "bodega":
+        return dict(part)
+    _, _, rmap = variant_index(variant)
+    return {(x, y, z): rmap.get(ci, ci) for (x, y, z), ci in part.items()}
+
+
+def _hash2(a, b, salt=0):
+    """Deterministic 0..99 hash for weathering/patch decisions."""
+    h = (a * 73856093) ^ (b * 19349663) ^ (salt * 83492791)
+    return (h & 0x7fffffff) % 100
+
+
+def mural_patches(part, vidx):
+    """Deterministic faded coral-pink paint patches on exterior wall faces
+    (mural skin only). Recolors turquoise wall voxels on the outer face
+    layers (y==0 south, x==0 west) in 4x4-voxel blotches. Trim, glass,
+    stone, shutters and interiors are never turquoise, so never touched."""
+    tq = vidx["turquoise"]
+    pink = vidx["patch_pink"]
+    out = {}
+    for (x, y, z), ci in part.items():
+        if ci == tq and (y == 0 or x == 0):
+            if _hash2(x // 4, z // 4, salt=7) < 42:
+                out[(x, y, z)] = pink
+                continue
+        out[(x, y, z)] = ci
+    return out
+
+
 # ---------------------------------------------------------------- builders
 def box(d, x0, x1, y0, y1, z0, z1, ci):
     """Inclusive-exclusive box fill. ci is a 1-based color index."""
@@ -686,6 +777,51 @@ def build_L(w, ox, oy):
     place(w, P["bodega-prop-tinaco"], 0, 0, 43, 0, ox + 14, oy + 20)
 
 
+def mural_star(world, vidx, ox=0):
+    """One large faded white 5-point star on the square building's south
+    face (mural skin only). Applied in world coords after build_square: the
+    face plane is world y==0, spanning x ox..ox+24, upper stories z 10..40.
+    Recolors turquoise wall voxels only (windows, trim, sills, stone are
+    skipped, so the star reads painted around the architecture); weathers
+    by hash-skip. No lettering — the star carries the propaganda read."""
+    import math
+    tq = vidx["turquoise"]
+    sw = vidx["star_white"]
+    cx, cz, R = ox + 12, 26, 15
+    r0 = 0.38  # inner/outer radius ratio: long thin points
+    for (x, y, z), ci in list(world.items()):
+        if ci != tq or y != 0:
+            continue
+        if not (ox <= x < ox + 24 and 10 <= z < 40):
+            continue
+        dx, dz = x - cx, z - cz
+        r = math.hypot(dx, dz)
+        if r > R:
+            continue
+        theta = math.degrees(math.atan2(dz, dx))
+        t = ((theta + 90) % 72) / 36.0  # 0 at the upward point
+        edge = R * (1 - (1 - r0) * (1 - abs(t - 1)))
+        if r <= edge and _hash2(x, z, salt=99) < 90:
+            world[(x, y, z)] = sw
+
+
+def variant_py_source(variant):
+    """Generator source with the PALETTE literal swapped for the variant
+    palette, so the viewer's static PALETTE parse derives the right color
+    names. Saved as bodega-corner-{variant}-v1.py for the upload zip."""
+    import re
+    src = open(__file__).read()
+    pal = variant_palette(variant)
+    lines = ["PALETTE = ["]
+    for n, (r, g, b) in pal:
+        lines.append(f'    ("{n}",'.ljust(22) + f"({r}, {g}, {b})),")
+    lines.append("]")
+    new, n = re.subn(r"^PALETTE = \[.*?\n\]", "\n".join(lines),
+                      src, count=1, flags=re.S | re.M)
+    assert n == 1, "PALETTE literal not found for variant .py"
+    return new
+
+
 def component_count(vox):
     """Number of 6-connected components."""
     seen = set()
@@ -706,57 +842,85 @@ def component_count(vox):
     return n
 
 
-if __name__ == "__main__":
+# ---------------------------------------------------------------- part builders
+BUILDERS = [
+    ("bodega-g-arcade", g_arcade),
+    ("bodega-g-arcade-corner", g_arcade_corner),
+    ("bodega-g-shopfront", g_shopfront),
+    ("bodega-g-stair", g_stair),
+    ("bodega-g-plain", g_plain),
+    ("bodega-u-shutter", u_shutter),
+    ("bodega-u-balcony", u_balcony),
+    ("bodega-u-barred", u_barred),
+    ("bodega-u-corner", u_corner),
+    ("bodega-top-cornice", top_cornice),
+    ("bodega-top-cornice-corner", top_cornice_corner),
+    ("bodega-roof-parapet", roof_parapet),
+    ("bodega-roof-parapet-corner", roof_parapet_corner),
+    ("bodega-notch-pier", notch_pier),
+    ("bodega-notch-pier-cap", notch_pier_cap),
+    ("bodega-prop-tinaco", prop_tinaco),
+    ("bodega-prop-antenna", prop_antenna),
+    ("bodega-prop-crates", prop_crates),
+]
+
+
+def build_variant(HERE, variant):
+    """Build one material variant: 18 part .vox files + the two-assembly
+    preview .vox/.png + a stem-matched variant .py for the upload zip."""
     import os
-    HERE = os.path.dirname(os.path.abspath(__file__))
-    BUILDERS = [
-        ("bodega-g-arcade", g_arcade),
-        ("bodega-g-arcade-corner", g_arcade_corner),
-        ("bodega-g-shopfront", g_shopfront),
-        ("bodega-g-stair", g_stair),
-        ("bodega-g-plain", g_plain),
-        ("bodega-u-shutter", u_shutter),
-        ("bodega-u-balcony", u_balcony),
-        ("bodega-u-barred", u_barred),
-        ("bodega-u-corner", u_corner),
-        ("bodega-top-cornice", top_cornice),
-        ("bodega-top-cornice-corner", top_cornice_corner),
-        ("bodega-roof-parapet", roof_parapet),
-        ("bodega-roof-parapet-corner", roof_parapet_corner),
-        ("bodega-notch-pier", notch_pier),
-        ("bodega-notch-pier-cap", notch_pier_cap),
-        ("bodega-prop-tinaco", prop_tinaco),
-        ("bodega-prop-antenna", prop_antenna),
-        ("bodega-prop-crates", prop_crates),
-    ]
+    global PARTS
+    pal, vidx, _ = variant_index(variant)
+    stem = "bodega-corner-v1" if variant == "bodega" else f"bodega-corner-{variant}-v1"
+    pstem = "bodega" if variant == "bodega" else f"bodega-{variant}"
+
     PARTS = {}
     for name, fn in BUILDERS:
-        v = fn()
+        v = apply_variant(fn(), variant)
+        if variant == "mural":
+            v = mural_patches(v, vidx)
         bad = floater_sweep(v)
-        assert not bad, f"{name}: {len(bad)} bad components"
+        assert not bad, f"{variant}/{name}: {len(bad)} bad components"
         PARTS[name] = v
         # part files are inspection/gluing aids: shift below-base protrusions
         # (balcony slab/corbels) so z starts at 0; the assembler uses the
         # unshifted local frames.
         mz = min(z for _, _, z in v)
         wv = {(x, y, z - mz): ci for (x, y, z), ci in v.items()} if mz < 0 else v
-        write_vox(os.path.join(HERE, name + ".vox"), wv, PALETTE)
-        print(f"part {name}: {len(v)} vox")
+        write_vox(os.path.join(HERE, f"{pstem}-{name[7:]}.vox"), wv, pal)
+        print(f"part {variant}/{name}: {len(v)} vox")
 
     world = {}
     build_square(world, 0, 0)
+    if variant == "mural":
+        mural_star(world, vidx, ox=0)
     build_L(world, 40, 0)
     bad = floater_sweep(world)
-    assert not bad, "floaters in assembly"
+    assert not bad, f"{variant}: floaters in assembly"
     xs = [p[0] for p in world]
     ys = [p[1] for p in world]
     zs = [p[2] for p in world]
-    print(f"assembly footprint x {min(xs)}..{max(xs)} "
+    print(f"assembly {variant} footprint x {min(xs)}..{max(xs)} "
           f"y {min(ys)}..{max(ys)} z {min(zs)}..{max(zs)}")
-    print(f"assembly total {len(world)} voxels")
-    write_vox(os.path.join(HERE, "bodega-corner-v1.vox"), world, PALETTE)
-    render_preview(os.path.join(HERE, "bodega-corner-v1_preview.png"),
-                   world, PALETTE, scale=6)
+    print(f"assembly {variant} total {len(world)} voxels")
+    write_vox(os.path.join(HERE, stem + ".vox"), world, pal)
+    render_preview(os.path.join(HERE, stem + "_preview.png"),
+                   world, pal, scale=6)
     for z in (5, 9, 15, 41, 44):
-        render_slice(os.path.join(HERE, f"bodega-corner-v1_slice_z{z:02d}.png"),
-                     world, PALETTE, z)
+        render_slice(os.path.join(HERE, f"{stem}_slice_z{z:02d}.png"),
+                     world, pal, z)
+    # stem-matched generator copy for the upload zip (variant PALETTE, so the
+    # viewer's static parse derives the right color names)
+    with open(os.path.join(HERE, stem + ".py"), "w") as f:
+        f.write(variant_py_source(variant))
+    print(f"variant {variant}: {len(world)} voxels")
+
+
+if __name__ == "__main__":
+    import os
+    import sys
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    which = [a for a in sys.argv[1:] if a in VARIANTS] or list(VARIANTS)
+    for variant in which:
+        print(f"=== variant: {variant} ===")
+        build_variant(HERE, variant)
