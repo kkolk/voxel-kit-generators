@@ -8,7 +8,8 @@ stone arcade, striped awning, tinacos + TV antennas on the roof).
 
 FACTORY-KIT METHOD, town content:
   B = 12 bay, S = 10 story, T = 2 wall, z-up, origin at footprint min corner,
-  no slab/yard. FACTORY_VOXEL 0.13. Tileset unit = one 12x12 bay, one story
+  no slab/yard. In game 0.3 m per voxel (3 m story, 3.6 m bay; see the
+  spec's scale note). Tileset unit = one 12x12 bay, one story
   tall (z s..s+10). Canonical orientation faces SOUTH (wall at y 0..2); the
   assembler rotates bays CCW about the bay centre (S->E->N->W).
   Seam rule (mill-style, strict): wall ends meet flush at bay lines; nothing
@@ -56,6 +57,24 @@ PALETTE = [
     ("coping",       (208, 202, 192)),  # 18 cornice / parapet coping
     ("roof",         (102, 104, 100)),  # 19 roof slab grey
     ("wood_floor",   (150, 112,  74)),  # 20 upper floor planks
+    # town expansion (bodega_town_v1.py), appended so slots 1-20 never move
+    ("tile",         (172,  86,  58)),  # 21 terracotta roof tile
+    ("tile_dark",    (128,  62,  44)),  # 22 tile course shadow, ridge
+    ("corr",         (150, 152, 148)),  # 23 corrugated sheet (galvanized)
+    ("corr_dark",    (112, 114, 112)),  # 24 corrugation trough
+    ("pier",         (160, 158, 150)),  # 25 pier concrete
+    ("pier_dark",    (112, 110, 104)),  # 26 pier kerb / wet concrete
+    ("rubber",       ( 30,  30,  32)),  # 27 tyre fenders
+    ("bronze",       (110,  92,  60)),  # 28 statue
+    ("bronze_dark",  ( 78,  64,  44)),  # 29
+    ("red",          (180,  52,  44)),  # 30 star, flag
+    ("water",        ( 70, 130, 150)),  # 31 fountain water
+    ("leaf",         ( 70, 118,  58)),  # 32 palm fronds
+    ("leaf_dark",    ( 48,  86,  44)),  # 33
+    ("trunk",        (120, 100,  76)),  # 34 palm trunk
+    ("soil",         ( 88,  66,  48)),  # 35 planter soil
+    ("crane",        (204, 160,  52)),  # 36 crane yellow
+    ("lamp",         (240, 220, 160)),  # 37 lamp glass
 ]
 
 C = {name: i + 1 for i, (name, _) in enumerate(PALETTE)}
@@ -69,26 +88,26 @@ C = {name: i + 1 for i, (name, _) in enumerate(PALETTE)}
 
 VARIANT_EXTRA = {
     "cement": [
-        ("concrete",       (170, 169, 161)),  # 21 drab bare concrete
-        ("concrete_dark",  (131, 130, 122)),  # 22
-        ("trim_gray",      (146, 145, 137)),  # 23 weathered gray trim
-        ("trim_gray_dark", (106, 105,  97)),  # 24
-        ("awn_gray",       (148, 146, 138)),  # 25 faded awning stripe
-        ("awn_offwhite",   (210, 206, 196)),  # 26
+        ("concrete",       (170, 169, 161)),  # 38 drab bare concrete
+        ("concrete_dark",  (131, 130, 122)),  # 39
+        ("trim_gray",      (146, 145, 137)),  # 40 weathered gray trim
+        ("trim_gray_dark", (106, 105,  97)),  # 41
+        ("awn_gray",       (148, 146, 138)),  # 42 faded awning stripe
+        ("awn_offwhite",   (210, 206, 196)),  # 43
     ],
     "brick": [
-        ("brick",           (150,  88,  64)),  # 21 exposed red-brown brick
-        ("brick_dark",      (112,  62,  46)),  # 22 mortar shadow
-        ("trim_white",      (219, 213, 199)),  # 23 faded off-white painted trim
-        ("trim_white_dark", (171, 165, 151)),  # 24
-        ("awn_faded_teal",  (120, 150, 144)),  # 25 sun-bleached canvas
-        ("awn_faded_cream", (213, 203, 183)),  # 26
+        ("brick",           (150,  88,  64)),  # 38 exposed red-brown brick
+        ("brick_dark",      (112,  62,  46)),  # 39 mortar shadow
+        ("trim_white",      (219, 213, 199)),  # 40 faded off-white painted trim
+        ("trim_white_dark", (171, 165, 151)),  # 41
+        ("awn_faded_teal",  (120, 150, 144)),  # 42 sun-bleached canvas
+        ("awn_faded_cream", (213, 203, 183)),  # 43
     ],
     "mural": [
-        ("turquoise",      (126, 198, 190)),  # 21 flagship turquoise plaster
-        ("patch_concrete", (158, 148, 134)),  # 22 exposed concrete under paint
-        ("patch_pink",     (234, 174, 172)),  # 23 faded coral-pink paint patches
-        ("star_white",     (231, 225, 213)),  # 24 weathered propaganda star
+        ("turquoise",      (126, 198, 190)),  # 38 flagship turquoise plaster
+        ("patch_concrete", (158, 148, 134)),  # 39 exposed concrete under paint
+        ("patch_pink",     (234, 174, 172)),  # 40 faded coral-pink paint patches
+        ("star_white",     (231, 225, 213)),  # 41 weathered propaganda star
     ],
 }
 
@@ -391,7 +410,7 @@ def band(vox, s, x0=0, x1=12):
 
 
 # ---------------------------------------------------------------- ground story (local z 0..10)
-def g_arcade():
+def g_arcade(lite=False):
     """Arcade bay, faces S. 2 arches, blank sign band, awning, shop interior."""
     v = {}
     ground_slab(v)
@@ -406,6 +425,9 @@ def g_arcade():
     sign_band(v)                                 # BLANK teal band
     B(v, 0, 12, 0, 2, 9, 10, "stone")           # entablature
     awning(v)
+    peel(v, [(8, 9, 2, 1)])
+    if lite:
+        return v
     # shop interior (room at 6..10, 2..6)
     B(v, 1, 5, 9, 11, 0, 3, "wood")             # counter
     B(v, 1, 5, 9, 11, 3, 4, "wood_dark")
@@ -414,11 +436,10 @@ def g_arcade():
     B(v, 1, 2, 6, 7, 2, 3, "sack")
     barrel(v, 3, 4)                              # barrel
     B(v, 4, 6, 2, 4, 0, 2, "wood")              # crates
-    peel(v, [(8, 9, 2, 1)])
     return v
 
 
-def g_arcade_corner():
+def g_arcade_corner(lite=False):
     """Arcade corner, faces S+W. Corner column whole; awning on S face."""
     v = {}
     ground_slab(v)
@@ -447,6 +468,8 @@ def g_arcade_corner():
     B(v, 1, 2, 2, 12, 8, 9, "stone")
     B(v, 0, 1, 2, 12, 8, 9, "teal")            # BLANK sign band
     B(v, 0, 2, 2, 12, 9, 10, "stone")
+    if lite:
+        return v
     # interior
     B(v, 3, 7, 9, 11, 0, 3, "wood")            # counter
     B(v, 3, 7, 9, 11, 3, 4, "wood_dark")
@@ -457,7 +480,7 @@ def g_arcade_corner():
     return v
 
 
-def g_shopfront():
+def g_shopfront(lite=False):
     """Open shopfront bay, faces S. Wide opening, wood lintel, sign band."""
     v = {}
     ground_slab(v)
@@ -470,6 +493,8 @@ def g_shopfront():
     sign_band(v)                                 # BLANK
     B(v, 0, 12, 0, 2, 9, 10, "stone")
     awning(v)
+    if lite:
+        return v
     # interior
     B(v, 2, 6, 9, 11, 0, 3, "wood")            # counter
     B(v, 2, 6, 9, 11, 3, 4, "wood_dark")
@@ -480,8 +505,9 @@ def g_shopfront():
     return v
 
 
-def g_stair():
-    """Entry bay to upper floors, faces S. Wood door, barred transom, steps."""
+def g_stair(lite=False):
+    """Entry bay to upper floors, faces S. Wood door, barred transom, steps.
+    Lite keeps the steps (lite strips shop dressing, never stairs)."""
     v = {}
     ground_slab(v)
     story_slab(v)
@@ -509,7 +535,7 @@ def g_stair():
     return v
 
 
-def g_plain():
+def g_plain(lite=False):
     """Plain back/side bay, faces S. Shuttered window + wood back door."""
     v = {}
     ground_slab(v)
@@ -524,10 +550,11 @@ def g_plain():
     B(v, 8, 10, 1, 2, 1, 5, "wood")            # back door, 1 deep
     B(v, 8, 10, 1, 2, 2, 3, "wood_dark")
     B(v, 7, 11, 0, 2, 5, 6, "stone")           # lintel
-    B(v, 2, 4, 8, 10, 0, 2, "wood")            # crates
-    B(v, 8, 10, 8, 10, 0, 2, "sack")           # sacks
     peel(v, [(1, 6, 2, 2), (9, 7, 2, 1)])
     rust_streak(v, 4, 2, 2)
+    if not lite:
+        B(v, 2, 4, 8, 10, 0, 2, "wood")        # crates
+        B(v, 8, 10, 8, 10, 0, 2, "sack")       # sacks
     return v
 
 
@@ -865,30 +892,55 @@ BUILDERS = [
 ]
 
 
-def build_variant(HERE, variant):
+# Ground parts with shop dressing take lite=True: slabs, walls and stairs
+# only (towns have hundreds of bay-stories; full dressing is ~600 vox per
+# bay-story). Every other part has no dressing, so lite is a no-op for it.
+LITE_BUILDERS = {"bodega-g-arcade", "bodega-g-arcade-corner",
+                 "bodega-g-shopfront", "bodega-g-stair", "bodega-g-plain"}
+
+
+def make_part(fn, variant, vidx, lite=False, takes_lite=False):
+    """One part in a skin: build canonical, (lite), remap, mural patches."""
+    v = apply_variant(fn(lite=lite) if takes_lite else fn(), variant)
+    if variant == "mural":
+        v = mural_patches(v, vidx)
+    return v
+
+
+def write_part(out, fname, v, pal, preview=False):
+    """Part .vox (+ optional preview .png). Part files are inspection/gluing
+    aids: shift below-base protrusions (balcony slab/corbels) so z starts at
+    0; assemblers use the unshifted local frames."""
+    import os
+    mz = min(z for _, _, z in v)
+    wv = {(x, y, z - mz): ci for (x, y, z), ci in v.items()} if mz < 0 else v
+    write_vox(os.path.join(out, fname + ".vox"), wv, pal)
+    if preview:
+        render_preview(os.path.join(out, fname + "_preview.png"), wv, pal,
+                       scale=8)
+
+
+def build_variant(HERE, variant, lite=False, out=None):
     """Build one material variant: 18 part .vox files + the two-assembly
-    preview .vox/.png + a stem-matched variant .py for the upload zip."""
+    preview .vox/.png + a stem-matched variant .py for the upload zip.
+    lite: lite interiors, files suffixed -lite."""
     import os
     global PARTS
+    out = out or HERE
     pal, vidx, _ = variant_index(variant)
-    stem = "bodega-corner-v1" if variant == "bodega" else f"bodega-corner-{variant}-v1"
+    sfx = "-lite" if lite else ""
+    stem = ("bodega-corner-v1" if variant == "bodega"
+            else f"bodega-corner-{variant}-v1") + sfx
     pstem = "bodega" if variant == "bodega" else f"bodega-{variant}"
 
     PARTS = {}
     for name, fn in BUILDERS:
-        v = apply_variant(fn(), variant)
-        if variant == "mural":
-            v = mural_patches(v, vidx)
+        v = make_part(fn, variant, vidx, lite, name in LITE_BUILDERS)
         bad = floater_sweep(v)
         assert not bad, f"{variant}/{name}: {len(bad)} bad components"
         PARTS[name] = v
-        # part files are inspection/gluing aids: shift below-base protrusions
-        # (balcony slab/corbels) so z starts at 0; the assembler uses the
-        # unshifted local frames.
-        mz = min(z for _, _, z in v)
-        wv = {(x, y, z - mz): ci for (x, y, z), ci in v.items()} if mz < 0 else v
-        write_vox(os.path.join(HERE, f"{pstem}-{name[7:]}.vox"), wv, pal)
-        print(f"part {variant}/{name}: {len(v)} vox")
+        write_part(out, f"{pstem}-{name[7:]}{sfx}", v, pal)
+        print(f"part {variant}/{name}{sfx}: {len(v)} vox")
 
     world = {}
     build_square(world, 0, 0)
@@ -903,24 +955,43 @@ def build_variant(HERE, variant):
     print(f"assembly {variant} footprint x {min(xs)}..{max(xs)} "
           f"y {min(ys)}..{max(ys)} z {min(zs)}..{max(zs)}")
     print(f"assembly {variant} total {len(world)} voxels")
-    write_vox(os.path.join(HERE, stem + ".vox"), world, pal)
-    render_preview(os.path.join(HERE, stem + "_preview.png"),
+    write_vox(os.path.join(out, stem + ".vox"), world, pal)
+    render_preview(os.path.join(out, stem + "_preview.png"),
                    world, pal, scale=6)
     for z in (5, 9, 15, 41, 44):
-        render_slice(os.path.join(HERE, f"{stem}_slice_z{z:02d}.png"),
+        render_slice(os.path.join(out, f"{stem}_slice_z{z:02d}.png"),
                      world, pal, z)
     # stem-matched generator copy for the upload zip (variant PALETTE, so the
     # viewer's static parse derives the right color names)
-    with open(os.path.join(HERE, stem + ".py"), "w") as f:
+    with open(os.path.join(out, stem + ".py"), "w") as f:
         f.write(variant_py_source(variant))
     print(f"variant {variant}: {len(world)} voxels")
+
+
+def parse_args(argv):
+    """[variant ...] [--lite] [--out DIR]; no variant = all four."""
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("variants", nargs="*", metavar="variant",
+                    help=" | ".join(VARIANTS))
+    ap.add_argument("--lite", action="store_true",
+                    help="lite interiors (slabs + stairs), files suffixed -lite")
+    ap.add_argument("--out", help="output dir (default: this script's dir)")
+    a = ap.parse_args(argv)
+    for v in a.variants:
+        if v not in VARIANTS:
+            ap.error(f"unknown variant {v!r}")
+    a.variants = a.variants or list(VARIANTS)
+    return a
 
 
 if __name__ == "__main__":
     import os
     import sys
     HERE = os.path.dirname(os.path.abspath(__file__))
-    which = [a for a in sys.argv[1:] if a in VARIANTS] or list(VARIANTS)
-    for variant in which:
-        print(f"=== variant: {variant} ===")
-        build_variant(HERE, variant)
+    args = parse_args(sys.argv[1:])
+    if args.out:
+        os.makedirs(args.out, exist_ok=True)
+    for variant in args.variants:
+        print(f"=== variant: {variant}{' (lite)' if args.lite else ''} ===")
+        build_variant(HERE, variant, args.lite, args.out)

@@ -13,7 +13,8 @@ inset 1 voxel (punched opening, 1-deep reveal).
 ## Grid contract (inherited from the factory kit)
 
 - **B = 12** bay, **S = 10** story, **T = 2** wall, **z-up**, origin at the
-  footprint's min corner, no slab/yard. `FACTORY_VOXEL 0.13` m.
+  footprint's min corner, no slab/yard. **In game: 0.3 m per voxel**
+  (Strike Bay `FactoryCompounds.KIT_VOXEL`), so a story is 3 m and a bay 3.6 m.
 - Tileset unit = one **12×12 bay, one story tall** (z s..s+10). Canonical
   orientation faces **south** (exterior wall at y 0..2); the generator
   rotates bays CCW about the bay centre (S→E→N→W) when composing.
@@ -53,13 +54,28 @@ inset 1 voxel (punched opening, 1-deep reveal).
 
 ## Scale note
 
-The tileset follows the factory kit's 10-voxel story module, so a story is
-1.3 m at FACTORY_VOXEL 0.13 — the same proportional language as the kit and
-the harbor set (kit mill loading door = 6/10 of a story; our arches = 6/10,
-French doors 7/10, railings 3/10). Openings/railings are proportioned to
-read true against the 1.5 m soldier the way the kit's own doors do; nothing
-is built at concept-pixel size and nothing is dilated — every voxel is
-authored detail.
+**Corrected 2026-10-05 (strike-bay#296).** In game the bodega kit draws at
+**0.3 m per voxel**, the factory kit's `KIT_VOXEL`: a 10-voxel story is
+3 m, a 12-voxel bay 3.6 m, and the 4-story corner building stands ~14 m to
+the coping. (The earlier wording here, FACTORY_VOXEL 0.13 and a 1.3 m
+story, described a build shorter than the soldier; nothing in game uses
+that scale.) Proportion new parts at 0.3 m: a door 7 voxels = 2.1 m, a rail
+3 = 0.9 m, a bench seat 1 above the ground = 0.3–0.45 m. Every voxel is
+authored detail; nothing is dilated.
+
+## Lite interiors
+
+Every part builder takes a lite option (`--lite` on the command line, or
+`bodega_town_v1.part(name, variant, lite=True)`): slabs, walls and stairs
+only, no shop dressing (counters, shelves, jars, sacks, barrels, crates,
+workbenches, tables). Parts without dressing are unchanged by it. Lite part
+files carry a `-lite` suffix. For towns: use lite for upper floors and
+mid-block buildings.
+
+Measured: the corner preview drops 29,336 → 28,634 voxels (−2.4%); a
+dressed ground bay drops 50–120 voxels. The shell and slabs, not the
+dressing, are most of the ~600 voxels per bay-story, so lite alone does
+not make the town budget; fewer stories and low caps do more.
 
 ## Module catalog (18 parts, canonical orientation)
 
@@ -97,7 +113,7 @@ Roof props (base z=0, seated on slab z=43):
 | bodega-prop-antenna | TV antenna: iron mast + crossbars |
 | bodega-prop-crates | wood crate cluster |
 
-## Palette (20 slots, literal PALETTE in the generator)
+## Palette (37 slots, literal PALETTE in the generator)
 
 plaster (198,162,102) · plaster_dark (156,122,76) · teal (104,158,150) ·
 teal_dark (68,110,104) · stone (172,164,148) · stone_dark (124,116,100) ·
@@ -106,6 +122,14 @@ iron_dark (32,34,40) · glass (110,142,152) · glass_dark (38,54,68) ·
 sack (178,154,110) · awn_a (140,190,182) · awn_b (238,232,218) ·
 tinaco (40,40,46) · rust (150,88,52) · coping (208,202,192) ·
 roof (102,104,100) · wood_floor (150,112,74)
+
+Town expansion (slots 21–37, appended so 1–20 never move; skins remap none
+of them): tile (172,86,58) · tile_dark (128,62,44) · corr (150,152,148) ·
+corr_dark (112,114,112) · pier (160,158,150) · pier_dark (112,110,104) ·
+rubber (30,30,32) · bronze (110,92,60) · bronze_dark (78,64,44) ·
+red (180,52,44) · water (70,130,150) · leaf (70,118,58) ·
+leaf_dark (48,86,44) · trunk (120,100,76) · soil (88,66,48) ·
+crane (204,160,52) · lamp (240,220,160). Skin extras follow at 38+.
 
 ## Preview assemblies (bodega-corner-v1.vox)
 
@@ -143,3 +167,109 @@ All variants: 29,336 voxels per assembly (recolor-only — file diffs vs the
 original show 0 added / 0 removed voxels), 0 floaters on every part and
 assembly. Viewer ids: cement 296, brick 297, mural 298 (separate entries,
 not replacements).
+
+## Town expansion (v3, 2026-10-05, strike-bay#296)
+
+`bodega_town_v1.py` adds 39 parts for port towns, on the same grid
+contract and the same four skins (it imports this generator's palette,
+skins and helpers). `part(name, variant, lite)` in that module builds any
+bodega part, core or town: the entry point for prefab builders.
+
+```
+python3 bodega_town_v1.py [bodega|cement|brick|mural ...] [--lite] [--out DIR]
+```
+
+writes `bodega-{skin}-<part>[-lite].vox` + `_preview.png` per part and a
+town preview `bodega-town-{skin}-v1[-lite].vox` + `_preview.png` (block of
+1-story shops with low caps, a 2-story row house under a tile gable, a
+civic portico + tower, a plaza of props, the harbor shed and a finger pier
+with T-head, crane, bollards, fenders and steps). The iso preview shows the
+north and east faces; canonical fronts face south.
+
+Footprints are half-open voxel bounds in the part's local frame,
+x0..x1 / y0..y1 / z0..z1 (negative y = proud of the south face). Voxel
+counts are the full-interior bodega skin.
+
+### Low caps (placed at the top of the walls: s = 10 or 20)
+
+| part | bounds | vox | notes |
+|---|---|---|---|
+| cap-1s | 0..12 / −1..12 / 0..5 | 264 | coping course, roof slab z 1, parapet 2, coping; S face |
+| cap-1s-corner | −1..12 / −1..12 / 0..5 | 370 | S+W |
+| cap-2s | 0..12 / −1..12 / 0..7 | 324 | dentil cornice 2, slab z 2, parapet 3, coping |
+| cap-2s-corner | −1..12 / −1..12 / 0..7 | 483 | S+W |
+
+Roof deck top (where roof props and the civic tower sit): s + 2 for
+cap-1s, s + 3 for cap-2s (s + 3 = 43 for the 4-story top, as before).
+
+### Ground and upper bays (12×12×10, faces S)
+
+| part | bounds | vox (lite) | notes |
+|---|---|---|---|
+| g-garage | 0..12 / −1..12 / 0..10 | 504 (447) | corrugated roll door 8 wide inset 1, lintel, blank sign band; workbench, oil drum, tyres |
+| g-warehouse | 0..12 / −1..12 / 0..10 | 475 (441) | plank loading door 7×7 (2.1 m), barred high window (sill 1.5 m); crates, sacks |
+| g-warehouse-corner | −1..12 / −1..12 / 0..10 | 685 (661) | S+W, stone corner column, high window per face |
+| g-cafe | 0..12 / −4..12 / 0..10 | 611 (544) | piers + beam on the street line, awning, checker-floor loggia y 2..5, glazed front set back at y 5; tables and chairs |
+| g-row-door | 0..12 / −2..12 / 0..10 | 534 (534) | narrow raised door, 2-step stoop proud 2, shuttered window, interior stair (kept lite) |
+| u-loggia | 0..12 / 0..12 / 0..10 | 420 | recessed balcony 6 wide × 4 deep, iron balustrade on the wall line, French door |
+| civic-portico | 0..12 / −2..12 / 0..10 | 710 (688) | raised floor z 0..2, 2 steps proud 2, 2 columns + half pilasters (pair at bay lines), cornice proud 1, back wall at y 6..8 with double door |
+
+### Civic tower
+
+| part | bounds | vox | notes |
+|---|---|---|---|
+| civic-tower | −1..13 / −1..13 / 0..38 | 1899 | 12×12 on the roof deck; 2 stories (windows, open belfry arches + bell), cornice proud 1 on all four sides, stepped tile pyramid z 21..27, flagpole + red flag to z 38 |
+
+The tower's cornice overhangs the bay by 1 sideways; it stands above
+every neighbour's roof, so nothing meets it.
+
+### Gable roofs (placed at the top of the walls; ridge 6 above)
+
+| part | bounds | vox | notes |
+|---|---|---|---|
+| roof-gable-1b-tile | 0..12 / −1..13 / 0..8 | 336 | one bay deep, 1:1 pitch, eaves proud 1 front and back, ridge cap |
+| roof-gable-1b-corrugated | 0..12 / −1..13 / 0..7 | 312 | ribs across the slope, rust runs |
+| roof-gable-2b-tile | 0..12 / −1..12 / 0..8 | 300 | half of a 2-bay-deep gable, 1:2 pitch, ridge at y 11; the far half is the same part at k=2 in the next bay |
+| roof-gable-2b-corrugated | 0..12 / −1..12 / 0..7 | 288 | |
+| gable-end-1b | 1..11 / −1..2 / 0..5 | 66 | triangle infill under a 1b roof, coping verge proud 1, attic vent |
+| gable-end-2b-l | 0..9 / −1..2 / 0..5 | 59 | half triangle, ridge on the left seen from outside |
+| gable-end-2b-r | 3..12 / −1..2 / 0..5 | 59 | ridge on the right |
+
+Roofs are 2 voxels thick (each column [h−1, h]) so the steps share faces.
+Roofs end flush at bay lines along the ridge (no sideways verge overhang);
+place a gable end on the end bays, turned to face out (W: k=3, E: k=1).
+Tile and corrugated keep their colours in every skin; gable ends are
+plaster and take the skin.
+
+### Plaza and street props (base z 0, own footprint)
+
+| part | bounds | vox | notes |
+|---|---|---|---|
+| prop-monument | 0..8 / 0..8 / 0..17 | 231 | stepped plinth, bronze figure ~2.1 m, arm raised |
+| prop-obelisk | 0..11 / 0..11 / 0..31 | 653 | tapering obelisk on a stepped base, red 5-point star on top (tip up) |
+| prop-fountain | 0..14 / 0..14 / 0..9 | 417 | round basin, rim 2, water, centre column, bowl, spout |
+| prop-bandstand | 0..16 / −2..16 / 0..17 | 1060 | octagonal platform with steps S, 8 iron posts, railing, stepped tile roof, finial |
+| prop-bench | 0..6 / 0..2 / 0..3 | 22 | 1.8 m park bench |
+| prop-lamp | 0..2 / 0..2 / 0..15 | 19 | 4.2 m lamp post, lantern |
+| prop-palm | 0..9 / −2..7 / 0..18 | 116 | stone planter 5×5, leaning trunk, drooping fronds (overhang the planter) |
+| prop-kiosk | −1..6 / −1..6 / 0..9 | 229 | 5×5 booth, serving window S, counter, overhanging roof |
+| prop-pole | 0..7 / 0..1 / 0..28 | 42 | 8.4 m wood pole at x 3, crossarm + insulators |
+| prop-bollard | 0..1 / 0..1 / 0..3 | 3 | street bollard |
+| prop-trashcans | 0..5 / 0..2 / 0..4 | 30 | two bins |
+
+### Pier set (pier concrete in every skin)
+
+| part | bounds | vox | notes |
+|---|---|---|---|
+| pier-deck | 0..12 / −1..12 / 0..3 | 309 | 12×12 deck, 2 thick, kerb on the S edge with drain gaps, drip edge proud 1. A 12-wide finger = this part at k=1 and k=3 in the same bay |
+| pier-deck-plain | 0..12 / 0..12 / 0..2 | 288 | no kerb, inner modules of a wide deck |
+| pier-pile | 0..4 / 0..4 / 0..21 | 96 | 2×2 pile 20 tall (6 m) + 4×4 cap; deck sits on z 21. The game cuts it to the seabed |
+| pier-head | 0..36 / −1..12 / 0..3 | 965 | T-head 36×12, berth face S, kerbs on the ends and on N except the finger join at x 12..24 |
+| pier-bollard | 0..3 / 0..3 / 0..4 | 16 | mooring bollard |
+| pier-fender | 0..4 / 0..3 / 0..8 | 18 | tyre ring on a chain; place at deck z − 5 with y −2 off the berth face so the hook lies over the kerb |
+| pier-crane | 0..12 / −12..9 / 0..24 | 707 | travelling portal crane on rail bogies, cab, jib reaching 12 past S, hook |
+| pier-steps | 0..8 / −3..0 / 0..8 | 108 | landing steps down a deck face; place at deck z − 6 |
+| harbor-shed | −1..37 / −1..25 / 0..17 | 5654 (5490) | 3×2-bay gable warehouse assembled from g-warehouse(-corner), roof-gable-2b-corrugated and gable-end-2b-l/r (`build_shed`) |
+
+The older harbor set (`harbor-*.py`) is not used by the town and was not
+touched.

@@ -22,6 +22,9 @@ the rendered models.
   `render_views.py out.png a.vox` renders a side/front/top/3-quarter sheet
   (`SCALE=` zoom, `HIDE=7` hides palette slots, e.g. canopy glass)
 - `water_tower_v1.py`, `storage_tank_*.py`, `fuel_tank_v1.py` — tanks
+- `bodega_corner_v1.py`, `bodega_town_v1.py` — seaside-town bodega tileset
+  and its port-town expansion (4 skins, `--lite` interiors); see
+  `bodega_SPEC.md`
 
 ## Usage
 
