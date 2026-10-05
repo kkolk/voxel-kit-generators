@@ -161,7 +161,7 @@ derives the right color names); parts `bodega-{variant}-<part>.vox`.
 |---|---|---|---|---|
 | cement | bare concrete gray | weathered gray (no teal left) | gray / off-white | the quietest skin |
 | brick | exposed red-brown brick | faded off-white painted trim | weathered canvas teal/cream | — |
-| mural | flagship turquoise | teal kept | original canvas | deterministic coral-pink paint patches on exterior wall faces (hash-based 4×4 blotches, never on trim/glass/interiors); one large faded white 5-point star on the square building's south face (rasterized, hash-weathered, no lettering) |
+| mural | flagship turquoise | teal kept | original canvas | deterministic coral-pink paint patches on exterior wall faces (hash-based 4×4 blotches, never on trim/glass/interiors). No voxel mural art: the wall is left open for texture murals painted on in game (strike-bay#308; the voxel star was removed 2026-10-05) |
 
 All variants: 29,336 voxels per assembly (recolor-only — file diffs vs the
 original show 0 added / 0 removed voxels), 0 floaters on every part and

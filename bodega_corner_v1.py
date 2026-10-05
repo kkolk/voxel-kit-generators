@@ -83,8 +83,10 @@ C = {name: i + 1 for i, (name, _) in enumerate(PALETTE)}
 # ---------------------------------------------------------------- material variants
 # Geometry builders always emit canonical (bodega-skin) color names; each
 # variant remaps a subset to variant colors appended to the palette. The
-# "mural" skin additionally gets painted detail passes (pink patches per
-# part, propaganda star per assembly). New skins only — geometry untouched.
+# "mural" skin additionally gets painted pink patches per part. Mural art
+# itself is not voxels: the game paints it onto open wall with a texture
+# (kkolk/strike-bay#308). New skins only — geometry
+# untouched.
 
 VARIANT_EXTRA = {
     "cement": [
@@ -107,7 +109,6 @@ VARIANT_EXTRA = {
         ("turquoise",      (126, 198, 190)),  # 38 flagship turquoise plaster
         ("patch_concrete", (158, 148, 134)),  # 39 exposed concrete under paint
         ("patch_pink",     (234, 174, 172)),  # 40 faded coral-pink paint patches
-        ("star_white",     (231, 225, 213)),  # 41 weathered propaganda star
     ],
 }
 
@@ -804,34 +805,6 @@ def build_L(w, ox, oy):
     place(w, P["bodega-prop-tinaco"], 0, 0, 43, 0, ox + 14, oy + 20)
 
 
-def mural_star(world, vidx, ox=0):
-    """One large faded white 5-point star on the square building's south
-    face (mural skin only). Applied in world coords after build_square: the
-    face plane is world y==0, spanning x ox..ox+24, upper stories z 10..40.
-    Recolors turquoise wall voxels only (windows, trim, sills, stone are
-    skipped, so the star reads painted around the architecture); weathers
-    by hash-skip. No lettering — the star carries the propaganda read."""
-    import math
-    tq = vidx["turquoise"]
-    sw = vidx["star_white"]
-    cx, cz, R = ox + 12, 26, 15
-    r0 = 0.38  # inner/outer radius ratio: long thin points
-    for (x, y, z), ci in list(world.items()):
-        if ci != tq or y != 0:
-            continue
-        if not (ox <= x < ox + 24 and 10 <= z < 40):
-            continue
-        dx, dz = x - cx, z - cz
-        r = math.hypot(dx, dz)
-        if r > R:
-            continue
-        theta = math.degrees(math.atan2(dz, dx))
-        t = ((theta - 90) % 72) / 36.0  # 0 at the upward point (theta 90)
-        edge = R * (1 - (1 - r0) * (1 - abs(t - 1)))
-        if r <= edge and _hash2(x, z, salt=99) < 90:
-            world[(x, y, z)] = sw
-
-
 def variant_py_source(variant):
     """Generator source with the PALETTE literal swapped for the variant
     palette, so the viewer's static PALETTE parse derives the right color
@@ -944,8 +917,6 @@ def build_variant(HERE, variant, lite=False, out=None):
 
     world = {}
     build_square(world, 0, 0)
-    if variant == "mural":
-        mural_star(world, vidx, ox=0)
     build_L(world, 40, 0)
     bad = floater_sweep(world)
     assert not bad, f"{variant}: floaters in assembly"
