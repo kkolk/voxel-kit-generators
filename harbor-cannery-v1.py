@@ -1,7 +1,7 @@
 """harbor-cannery-v1 — 1960s Havana fish cannery.
 
 48x24 footprint (4x2 bays), single tall story, sawtooth roof with glazed
-faces, faded PESCA fish sign, exterior steel stair to a roof catwalk,
+faces, faded fish logo, exterior steel stair to a roof catwalk,
 brick chimney, wall pipes. FACTORY_VOXEL 0.13.
 Hollow shell + buried interior room z 1..7.
 """
@@ -167,18 +167,6 @@ for z in range(0, H):
     vox[(40, D - 1, z)] = CI["steel_dark"]
 
 # ---- big PESCA sign on the north face (y=23 plane): fish + letters
-def paint_text(text, x0, y, z0, fg):
-    x = x0
-    for ch in text:
-        g = FONT_3X5[ch]
-        for r in range(5):
-            for cc in range(3):
-                if g[r][cc] == "#":
-                    if rnd(x + cc, z0 + 4 - r, 81) % 10 == 0:
-                        continue  # weathering knock-out
-                    vox[(x + cc, y, z0 + 4 - r)] = CI[fg]
-        x += 4
-
 def paint_fish(x0, yf, z0):
     for dx in range(9):  # body ellipse
         for dy in range(-2, 3):
@@ -194,7 +182,7 @@ def paint_fish(x0, yf, z0):
     vox[(x0 + 2, yf, z0 + 3)] = CI["dark"]  # eye
 
 paint_fish(4, D - 1, 6)
-paint_text("PESCA", 20, D - 1, 6, "cream")
+# (PESCA lettering removed 2026-10-04: fish logo kept)
 
 # ---- small high windows on the north face (flank the sign)
 for x0 in (2, 42):

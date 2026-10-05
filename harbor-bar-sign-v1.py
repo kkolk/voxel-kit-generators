@@ -1,10 +1,10 @@
 """harbor-bar-sign-v1 — painted cantina board sign.
 
-Freestanding wood-post sign: cream board with dark 3x5 "BAR" over
-"LA ESQUINA" (weathered), wood_dark edge trim, striped white/pump_red
+Freestanding wood-post sign: blank cream board (lettering removed),
+wood_dark edge trim, striped white/pump_red
 awning below the board on wood posts. z-up, at grade. FACTORY_VOXEL 0.13.
 
-Note: the board is 40 wide (not 14) — "LA ESQUINA" needs 39 voxels at
+Note: the board is 40 wide to carry a full-width painted line;
 3x5 and cannot fit the spec's 14-wide board at any legible size.
 """
 
@@ -97,15 +97,10 @@ def build():
         for z in range(8, 20):
             vox[(0, y, z)] = CI["wood_dark"]
             vox[(39, y, z)] = CI["wood_dark"]
-    # lettering on both faces
-    for y in (0, 2):
-        text("BAR", 14, 18, y, "dark")               # rows z 14..18
-        text("LA ESQUINA", 5, 12, y, "dark", spacing=0)  # rows z 8..12, x 5..34
-    # weathering: knocked-out letter voxels + worn cream speckle
+    # (lettering removed 2026-10-04: board kept blank)
+    # weathering: worn cream speckle on the board
     for p, ci in list(vox.items()):
-        if ci == CI["dark"] and rng.random() < 0.07:
-            del vox[p]
-        elif ci == CI["cream"] and rng.random() < 0.05:
+        if ci == CI["cream"] and rng.random() < 0.05:
             vox[p] = CI["wood"]
     # striped awning below the board: stepped slope from the board face
     for i, y in enumerate((0, -1, -2, -3)):

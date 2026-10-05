@@ -3,7 +3,7 @@
 36 x 24 (3 x 2 bays), 3 stories, wall top z=29. Ground-floor street arcade
 with stepped arches, recessed shop doorways (one striped awning), upper floors
 in faded turquoise / pink plaster with peeling patches, shuttered windows,
-iron balconies, rooftop tinacos + crooked TV antenna, PATRIA O MUERTE mural
+iron balconies, rooftop tinacos + crooked TV antenna, faded mural band
 on the rear wall. Hollow shell + buried interior room z 1..7.
 FACTORY_VOXEL 0.13. z-up, origin at footprint min corner, at grade.
 """
@@ -284,13 +284,9 @@ box(31, 31, 16, 20, 41, 41, "iron")
 for _ in range(6):
     vox[(R.randint(2, 33), R.randint(2, 21), 32)] = CI["dark"]
 
-# ---------------------------------------------------------------- mural: PATRIA O MUERTE on the rear wall
+# ---------------------------------------------------------------- mural band on the rear wall (lettering removed)
 box(1, 34, 24, 24, 11, 23, "cream")  # proud sign band
-draw_text_y(24, 6, 22, "PATRIA")
-draw_text_y(24, 2, 16, "O MUERTE")
-for (x, y, z), ci in list(vox.items()):  # weather the letters
-    if y == 24 and ci == CI["dark"] and 11 <= z <= 23 and R.random() < 0.07:
-        vox[(x, y, z)] = CI["cream"]
+# (lettering removed 2026-10-04: cream band kept blank)
 
 # ---------------------------------------------------------------- buried interior room
 box(4, 32, 6, 18, 0, 8, "concrete")

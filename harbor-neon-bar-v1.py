@@ -86,7 +86,7 @@ def build():
         for x in range(1, 12):  # cyan border horizontals
             vox[(x, y, 22)] = CI["neon_cyan"]
             vox[(x, y, 29)] = CI["neon_cyan"]
-        text("BAR", 2, 28, y, "neon_pink", spacing=0)  # pink BAR, rows z 24..28
+        # (BAR letter tubes removed 2026-10-04)
         for x in range(3, 6):  # yellow double underline, z 23
             vox[(x, y, 23)] = CI["neon_yellow"]
         for x in range(7, 10):

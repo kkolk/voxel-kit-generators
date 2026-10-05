@@ -2,7 +2,7 @@
 
 48x36 footprint (4x3 bays), 2 stories, gable roof. Faded ochre plaster with
 peel patches, three arched loading bays (center one open, doors slid aside),
-painted ADUANA sign band, rust streaks, corrugated repairs.
+blank painted sign band, rust streaks, corrugated repairs.
 FACTORY_VOXEL 0.13. Hollow shell + buried interior room z 1..7.
 """
 import struct
@@ -143,25 +143,13 @@ for (x0, x1) in ((10, 14), (22, 26)):
             if rnd(x, z, 21) % 100 < 15:
                 vox[(x, -1, z)] = CI["rust"]
 
-# ---- painted ADUANA sign band (cream, z 14..19, letters weathered)
+# ---- blank painted sign band (cream, z 14..19, letters weathered)
 for x in range(W):
     for z in range(14, 20):
         if vox.get((x, 0, z)) == CI["plaster"]:
             vox[(x, 0, z)] = CI["cream"]
 
-def paint_text(text, x0, y, z0, fg):
-    x = x0
-    for ch in text:
-        g = FONT_3X5[ch]
-        for r in range(5):
-            for cc in range(3):
-                if g[r][cc] == "#":
-                    if rnd(x + cc, z0 + 4 - r, 31) % 9 == 0:
-                        continue  # weathering knock-out
-                    vox[(x + cc, y, z0 + 4 - r)] = CI[fg]
-        x += 4
-
-paint_text("ADUANA", 12, 0, 14, "dark")
+# (lettering removed 2026-10-04: cream band kept blank)
 
 # ---- windows: steel_dark sash, grimy glass
 def side_window(xa, y0, z0, glass_name):

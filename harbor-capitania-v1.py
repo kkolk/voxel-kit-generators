@@ -214,11 +214,7 @@ box(15, 15, -1, 1, 13, 13, "iron")
 
 # ---------------------------------------------------------------- sign band (rear): CAPITANIA as two-line stack
 box(0, 23, 24, 24, 9, 21, "cream")
-draw_text_y(24, 4, 19, "CAPI")
-draw_text_y(24, 2, 14, "TANIA")
-for (x, y, z), ci in list(vox.items()):
-    if y == 24 and ci == CI["dark"] and 9 <= z <= 21 and R.random() < 0.07:
-        vox[(x, y, z)] = CI["cream"]
+# (lettering removed 2026-10-04: cream band kept blank)
 
 # ---------------------------------------------------------------- gable roof (ridge along x at y=12)
 def roof_z(y):
