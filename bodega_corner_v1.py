@@ -826,7 +826,7 @@ def mural_star(world, vidx, ox=0):
         if r > R:
             continue
         theta = math.degrees(math.atan2(dz, dx))
-        t = ((theta + 90) % 72) / 36.0  # 0 at the upward point
+        t = ((theta - 90) % 72) / 36.0  # 0 at the upward point (theta 90)
         edge = R * (1 - (1 - r0) * (1 - abs(t - 1)))
         if r <= edge and _hash2(x, z, salt=99) < 90:
             world[(x, y, z)] = sw
