@@ -26,6 +26,20 @@ Parts (one 6-connected component each):
 
 Points (file coords, continuous):
   MUZZLE            centre of the muzzle face (tracer origin)
+
+Landmarks (file voxel cells, for agents without vision):
+  FRONT  muzzle face y=1 at (17.5, 1, 16.5): the barrels point -y.
+  BACK   yoke/turntable rear y~36; radome back face y~34.
+  UP     +z (radome top z=41). Gun + FLIR sit on +x (x 15..26), the
+         radome centre on the traverse axis x=15.
+  Parts  base      x 4..25   y 16..37  z 0..2    (deck footprint)
+         carriage  x 2..27   y 17..36  z 3..20   (arms x 2..7 and 22..27)
+         cradle    x 8..26   y 15..34  z 4..41   (radome z 20..41, drum
+                   below the gun at z~8.6)
+         barrels   x 15..19  y 1..15   z 14..18
+  Links  carriage sits on base at z=3 about TRAVERSE_AXIS (15, 27);
+         cradle hangs in the arms on ELEV_PIVOT (y 27, z 16.5);
+         barrels spin in the cradle on SPIN_AXIS (x 17.5, z 16.5).
 """
 import math
 import os

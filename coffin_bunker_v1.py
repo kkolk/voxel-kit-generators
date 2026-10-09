@@ -37,6 +37,25 @@ Points (module-local, continuous; printed at the bottom):
   MISSILE_SEAT / MISSILE_DIR  nose tip + axis of the seated missile
   OPENING   hex opening polygon (x, z) in the plane y = OPEN_Y: the
             trench-shot entry plane; TUBE_BOX the interior behind it.
+
+Landmarks (module-local voxel cells, for agents without vision):
+  FRONT  doors face -y: the door leaves sit at y 24..29, the facade/apron
+         y 0..28; the trench-shot plane is y=28, hex (10,2) (38,2) (38,15)
+         (28,25) (20,25) (10,15) in (x, z).
+  BACK   tube runs back to y=86 (TUBE_BOX (8,28,2)-(40,86,31)); the mound
+         ends at y~113.
+  UP     +z; ground z=0; mound top z~44.
+  Seat   missile nose tip (24, 29, 13.6), axis (0, -0.990, 0.139): 8 deg up,
+         out through the doors.
+  Parts  core     x 4..43   y 0..91   z 0..45   (invulnerable)
+         door-l   x 7..23   y 24..29  z 2..29   hinge (7, 26), opens -90 about z
+         door-r   x 24..40  y 24..29  z 2..29   hinge (41, 26), opens +90
+         mound    x 0..47   y 7..113  z 0..44   (voxel_health)
+         cap-l/r  x 0..29   y 7..114  z 0..45   (cap-l placed at x=-30;
+                  cap-r right after the last bay)
+         radar pad x 8..21 y 56..70 z 0..39; mast z 33..69; antenna
+                  z 68..90, spins about z through (15, 64) (cap-local)
+  Links  bays tile along x every 48 cells (BAY pitch).
 """
 import math
 import os

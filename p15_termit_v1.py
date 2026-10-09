@@ -26,6 +26,21 @@ Parts:
 Points (file coords, continuous):
   SUSTAINER_NOZZLE  centre of the main nozzle exit (flame / trail origin)
   BOOSTER_NOZZLE    centre of the booster nozzle exit (launch plume)
+
+Landmarks (file voxel cells, for agents without vision):
+  FRONT  nose tip = the single voxel (33, 0, 22); slices widen 1 -> 101
+         voxels by y=10, full body (~235) from y~20.
+  BACK   tail / sustainer nozzle ring y 125..129 (z 16..28); nozzle exit
+         (33.5, 130, 22.5). Top tail fin y 110..123, z >= 40.
+  UP     +z (top fin side). RIGHT wing = +x (x 42..65), LEFT = -x (x 1..24).
+  Parts  body     x 10..55  y 0..129   z 14..46
+         wing-r   x 42..65  y 40..83   z 21..23  (hinge x=42, z=22.5)
+         wing-l   x 1..24   y 40..83   z 21..23  (hinge x=25, z=22.5)
+         booster  x 24..42  y 88..132  z 3..14   (under the tail; exit
+                  (33.5, 134, 7.7))
+  Game   load_model_aligned cell = (cx-1-fx, fz, fy-cy) with frame (34, 67)
+         puts the nose at model-local z = -3.0 m and the tail at +2.84 m:
+         prove "nose leads" with model.to_global(nose) vs velocity.
 """
 import math
 import os
