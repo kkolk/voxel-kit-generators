@@ -4,23 +4,29 @@
 Tracked chassis + traversing turret + Gatling gun pack,
 with the Gun Dish radar on the turret roof.
 
-Four rig parts sharing one design frame (file coords == design coords):
+Five rig parts sharing one design frame (file coords == design coords):
 
   zsu_hull_v1.vox    static: armored hull tub, glacis, engine deck, fenders,
                     turret ring, headlights, tow hooks
   zsu_tracks_v1.vox  running gear (ONE part for a motion shader): left/right
                     track runs, 6 road wheels per side, drive sprockets,
                     idlers, return rollers, tread links
-  zsu_turret_v1.vox  traverse: turret body, roof, hatches, Gun Dish radar,
+  zsu_turret_v2.vox  traverse: turret body, roof, hatches, radar pedestal,
                     ammo boxes, turret basket (rotates about the vertical axis)
+  zsu_radar_v1.vox   spin: the Gun Dish itself (dish + feed horn) on its own
+                    pivot through the pedestal centre (yaws about the vertical
+                    axis while the vehicle is active; the pedestal stays with
+                    the turret so turret-without-dish + radar == the old v1)
   zsu_guns_v1.vox    elevation: Gatling rotary cannon — rotor housing +
                     6-barrel cluster on a trunnion mount (rotates about the
                     horizontal axis)
-  zsu_aa_v1.vox      assembled merge of the four (browsing / reference)
+  zsu_aa_v1.vox      assembled merge of all five (browsing / reference)
 
 Rig pivots (design coords, x right / y forward / z up):
   TRAVERSE_PIVOT  = (17, 40, 16)   z-axis; parent the turret part here
   ELEVATION_PIVOT = (17, 56, 23)   x-axis; parent the guns part here,
+                                  as a child of the traverse node
+  RADAR_PIVOT     = (17, 29, 28)   z-axis; parent the radar part here,
                                   as a child of the traverse node
 
 Guns are authored horizontal (0 deg elevation, pointing +y) — the rigging
@@ -49,10 +55,12 @@ CI = {name: i + 1 for i, (name, _) in enumerate(PALETTE)}
 
 TRAVERSE_PIVOT = (17, 40, 16)
 ELEVATION_PIVOT = (17, 56, 23)
+RADAR_PIVOT = (17, 29, 28)   # spin axis (z) through the pedestal centre
 
 hull = {}
 tracks = {}
 turret = {}
+radar = {}
 guns = {}
 
 def box(d, x0, x1, y0, y1, z0, z1, c):
@@ -185,11 +193,13 @@ cyl_z(turret, 24, 38, 2, 28, 29, "olive_dark")
 # periscopes along the front roof edge
 for px in (7, 12, 22, 27):
     box(turret, px, px + 1, 50, 51, 28, 29, "glass")
-# Gun Dish radar at the turret rear: pedestal + deployed dish facing +y
-box(turret, 14, 20, 26, 32, 28, 33, "olive_dark")  # radar pedestal
-cyl_y(turret, 17, 38, 5, 30, 32, "olive")          # dish face
-cyl_y(turret, 17, 38, 5, 32, 33, "olive_dark")     # dish back
-cyl_y(turret, 17, 38, 2, 29, 30, "steel_dark")     # feed horn
+# Gun Dish radar at the turret rear: the pedestal stays on the turret, the
+# deployed dish facing +y spins on its own pivot (#404: RADAR_PIVOT, the
+# pedestal centre, so the dish orbits the mast as it scans)
+box(turret, 14, 20, 26, 32, 28, 33, "olive_dark")  # radar pedestal (stays)
+cyl_y(radar, 17, 38, 5, 30, 32, "olive")           # dish face (spins)
+cyl_y(radar, 17, 38, 5, 32, 33, "olive_dark")      # dish back (spins)
+cyl_y(radar, 17, 38, 2, 29, 30, "steel_dark")      # feed horn (spins)
 # ammo boxes on the turret flanks + feed chutes to the receivers
 for (bx0, bx1) in ((0, 3), (31, 34)):
     box(turret, bx0, bx1, 34, 46, 19, 23, "olive")
@@ -227,12 +237,14 @@ box(guns, 14, 20, 58, 60, 20, 26, "gunmetal_dark")# barrel collar ahead of mantl
 assembled = dict(hull)
 assembled.update(tracks)
 assembled.update(turret)
+assembled.update(radar)
 assembled.update(guns)
 
 PARTS = {
     "zsu_hull_v1": hull,
     "zsu_tracks_v1": tracks,
-    "zsu_turret_v1": turret,
+    "zsu_turret_v2": turret,
+    "zsu_radar_v1": radar,
     "zsu_guns_v1": guns,
     "zsu_aa_v1": assembled,
 }
@@ -325,6 +337,15 @@ def floater_sweep(parts):
         print(f"{name}: {floaters} floater voxels ({len(vox)} total)")
 
 if __name__ == "__main__":
+    import sys
+    if "--viewer-json" in sys.argv[1:]:
+        # Palette labels for the voxel viewer's PATCH /api/models/{id}
+        # (palette_names: [{index, name}]); the viewer also derives these
+        # from the attached .py, this just makes the payload explicit.
+        import json
+        print(json.dumps({"palette_names": [
+            {"index": i + 1, "name": name} for i, (name, _) in enumerate(PALETTE)]}))
+        raise SystemExit(0)
     here = os.path.dirname(os.path.abspath(__file__))
     gx = min(p[0] for p in assembled); gy = min(p[1] for p in assembled)
     XOFF, YOFF = -gx, -gy
@@ -332,6 +353,8 @@ if __name__ == "__main__":
           f"({TRAVERSE_PIVOT[0]+XOFF},{TRAVERSE_PIVOT[1]+YOFF},{TRAVERSE_PIVOT[2]})")
     print(f"elevation pivot file coords: "
           f"({ELEVATION_PIVOT[0]+XOFF},{ELEVATION_PIVOT[1]+YOFF},{ELEVATION_PIVOT[2]})")
+    print(f"radar pivot file coords: "
+          f"({RADAR_PIVOT[0]+XOFF},{RADAR_PIVOT[1]+YOFF},{RADAR_PIVOT[2]})")
     for name, d in PARTS.items():
         write_vox(os.path.join(here, name + ".vox"), d, PALETTE, XOFF, YOFF)
         render_preview(os.path.join(here, name + "_preview.png"), d, PALETTE)
