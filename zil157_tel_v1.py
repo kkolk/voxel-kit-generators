@@ -33,6 +33,25 @@ Parts (coarse unless noted):
   zil157-tel-leg-l/r-v1    slide down LEG_TRAVEL voxels to deploy
 Missile seats (fine coords, nose tip; axis along -y at rest):
   MISSILE_SEATS
+
+Landmarks (coarse file cells unless noted, for agents without vision):
+  FRONT  bumper y=0, cab y 2..34 (forward = -y). BACK  bed/chassis end y=77.
+  UP     +z, ground z=0. LEFT = low x (x 0..4 leg-l), RIGHT = high x.
+  Missiles ride the launcher NOSE FORWARD (toward the cab): nose tips at
+         coarse (4.5, 40, 24.75) and (20.5, 40, 24.75) = fine (9|41, 80,
+         49.5); tails toward the rear pivot. Raising the launcher lifts the
+         noses (front end) up to 25 deg about the REAR line y=76, z=17;
+         missiles fire forward-up over the cab.
+  Parts  chassis (v2) x 0..24  y 0..77  z 3..11
+         cab (v2)     x 0..24  y 2..34  z 6..26
+         bed          x 0..25  y 34..77 z 7..26
+         launcher     x 0..24  y 40..79 z 11..24  pivot (y 76, z 17)
+         ram barrel   x 3..5 | 19..21  y 50..57 z 15..18  pivot (50, 15.5)
+         ram rod      x 4 | 20         y 56..62 z 16      pivot (62, 16.5)
+         mast         x 9..15  y 34..64 z 13..19  folded back (+y);
+                      hinge (y 36.5, z 16.5), deploy -90 deg -> upright
+         antenna      x 11..13 y 65..84 z 12..23  (mast tip, at rest)
+         legs         x 0..4 | 20..25  y 68..74  z 6..11; deploy = z -4
 """
 import math
 import os
