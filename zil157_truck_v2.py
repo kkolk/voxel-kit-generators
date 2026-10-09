@@ -51,13 +51,14 @@ PALETTE = [  # v1 palette, same indices
     ("dark",         ( 24,  26,  30)),  # 12
     ("wood",         (108,  94,  70)),  # 13
     ("wood_dark",    ( 76,  66,  50)),  # 14
-    ("canvas",       (110, 110,  80)),  # 15
-    ("canvas_dark",  ( 70,  74,  52)),  # 16
+    ("canvas",       (170, 146,  96)),  # 15 desert-tan canvas (owner: yellowy tan)
+    ("canvas_dark",  (128, 106,  68)),  # 16 hoop ridges, ropes, flap seams
     ("glass",        (120, 160, 180)),  # 17
     ("white",        (222, 222, 216)),  # 18
     ("window",       (100, 132, 152)),  # 19
     ("brass",        (168, 134,  72)),  # 20
     ("red",          (150,  44,  38)),  # 21
+    ("canvas_light", (196, 176, 122)),  # 22 sun-faded canvas roof
 ]
 CI = {name: i + 1 for i, (name, _) in enumerate(PALETTE)}
 
@@ -323,7 +324,7 @@ def bed_covered():
     # lighter roof panel (sun-faded) and a ridge seam
     for (x, y, z), c in list(d.items()):
         if z == TENT_TOP - 1 and c == CI["canvas"] and 6 <= x <= 18:
-            d[(x, y, z)] = CI["olive_light"]
+            d[(x, y, z)] = CI["canvas_light"]
     # tie-down rope along the bottom edge and lashing points
     for x in (0, 24):
         for y in range(y0, y1):
