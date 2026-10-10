@@ -113,7 +113,7 @@ Roof props (base z=0, seated on slab z=43):
 | bodega-prop-antenna | TV antenna: iron mast + crossbars |
 | bodega-prop-crates | wood crate cluster |
 
-## Palette (37 slots, literal PALETTE in the generator)
+## Palette (38 slots, literal PALETTE in the generator)
 
 plaster (198,162,102) · plaster_dark (156,122,76) · teal (104,158,150) ·
 teal_dark (68,110,104) · stone (172,164,148) · stone_dark (124,116,100) ·
@@ -122,6 +122,12 @@ iron_dark (32,34,40) · glass (110,142,152) · glass_dark (38,54,68) ·
 sack (178,154,110) · awn_a (140,190,182) · awn_b (238,232,218) ·
 tinaco (40,40,46) · rust (150,88,52) · coping (208,202,192) ·
 roof (102,104,100) · wood_floor (150,112,74)
+art_face (202,166,106) — slot 38, blank-art reserve (#308, §Boards):
+near-plaster but exactly separable from plaster (198,162,102), so the
+game routes it to the board material by colour while unassigned boards
+read as plain wall. Skins remap it to their own near-wall reserve
+(cement art_concrete, brick art_brick, mural art_turquoise); skin
+extras now follow at 39+.
 
 Town expansion (slots 21–37, appended so 1–20 never move; skins remap none
 of them): tile (172,86,58) · tile_dark (128,62,44) · corr (150,152,148) ·
@@ -129,7 +135,7 @@ corr_dark (112,114,112) · pier (160,158,150) · pier_dark (112,110,104) ·
 rubber (30,30,32) · bronze (110,92,60) · bronze_dark (78,64,44) ·
 red (180,52,44) · water (70,130,150) · leaf (70,118,58) ·
 leaf_dark (48,86,44) · trunk (120,100,76) · soil (88,66,48) ·
-crane (204,160,52) · lamp (240,220,160). Skin extras follow at 38+.
+crane (204,160,52) · lamp (240,220,160). Skin extras follow at 39+.
 
 ## Preview assemblies (bodega-corner-v1.vox)
 
@@ -273,3 +279,23 @@ plaster and take the skin.
 
 The older harbor set (`harbor-*.py`) is not used by the town and was not
 touched.
+
+### Boards (blank billboards / murals, strike-bay#308)
+
+Panel field is `art_face` (slot 38, per-skin near-plaster reserve): the
+game routes it to the board material by exact colour, and unassigned it
+reads as plain wall. Faces SOUTH, art on y = −1; all mounts reach local
+z = 0 (floater-clean). Sizes are panel voxels (12×6 = 3.6×1.8 m,
+24×8 = 7.2×2.4 m, 36×12 = 10.8×3.6 m at 0.3 m/voxel).
+
+| part | bounds | vox | notes |
+|---|---|---|---|
+| board-wall-12x6 | −1..13 / −1..1 / 0..8 | 144 | wall-mounted, wood battens embed in wall |
+| board-wall-24x8 | −1..25 / −1..1 / 0..10 | 300 | wall-mounted |
+| board-wall-36x12 | −1..37 / −1..1 / 0..14 | 588 | wall-mounted |
+| board-roof-12x6 | −1..13 / −1..2 / 0..12 | 142 | rooftop, iron A-frame on deck, panel z 5+ |
+| board-roof-24x8 | −1..25 / −1..2 / 0..14 | 302 | rooftop |
+| board-roof-36x12 | −1..37 / −1..2 / 0..18 | 586 | rooftop |
+| board-free-12x6 | −1..13 / −1..1 / 0..9 | 154 | freestanding, wood posts + stone kicker + cap |
+| board-free-24x8 | −1..25 / −1..1 / 0..11 | 330 | freestanding |
+| board-free-36x12 | −1..37 / −1..1 / 0..15 | 634 | freestanding |

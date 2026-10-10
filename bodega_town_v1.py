@@ -746,6 +746,59 @@ def build_shed(w, get, ox, oy):
     place(w, get("bodega-gable-end-2b-l"), 2, 1, 10, 1, ox, oy)
 
 
+# ---------------------------------------------------------------- boards (#308)
+# Blank billboard / mural boards. Panel field is "art_face": the game
+# routes it to the board material by exact colour, and unassigned it
+# reads as wall plaster (per-skin near-plaster reserve). Faces SOUTH,
+# art on y = -1; every mount reaches local z = 0 so all components
+# touch the base plane (floater_sweep). Sizes are panel voxels.
+def _board_frame(v, w, h, z0):
+    """Wood frame + art panel: field x 0..w, z z0+1..z0+h+1, front y -1."""
+    B(v, -1, w + 1, -1, 0, z0, z0 + 1, "wood")          # sill
+    B(v, -1, w + 1, -1, 0, z0 + h + 1, z0 + h + 2, "wood")  # head
+    B(v, -1, 0, -1, 0, z0, z0 + h + 2, "wood")          # stiles
+    B(v, w, w + 1, -1, 0, z0, z0 + h + 2, "wood")
+    B(v, 0, w, -1, 0, z0 + 1, z0 + h + 1, "art_face")   # panel field
+
+
+def board_wall(w, h):
+    """Wall-mounted board: battens embed in the wall behind (y 0..1)."""
+    def build():
+        v = {}
+        _board_frame(v, w, h, 0)
+        B(v, 0, 2, 0, 1, 0, h + 2, "wood_dark")         # battens
+        B(v, w - 2, w, 0, 1, 0, h + 2, "wood_dark")
+        return v
+    return build
+
+
+def board_roof(w, h):
+    """Rooftop board: iron A-frame legs seated on the deck, panel above."""
+    def build():
+        v = {}
+        _board_frame(v, w, h, 4)
+        B(v, 0, w, -1, 1, 4, 5, "iron")                 # crossbar
+        B(v, 0, 1, 0, 1, 0, 5, "iron")                 # front legs
+        B(v, w - 1, w, 0, 1, 0, 5, "iron")
+        B(v, 0, 1, 1, 2, 0, 5, "iron")                 # rear legs
+        B(v, w - 1, w, 1, 2, 0, 5, "iron")
+        return v
+    return build
+
+
+def board_free(w, h):
+    """Freestanding board: wood posts + stone kicker, cap rail on top."""
+    def build():
+        v = {}
+        _board_frame(v, w, h, 0)
+        B(v, -1, 0, 0, 1, 0, h + 2, "wood")             # posts
+        B(v, w, w + 1, 0, 1, 0, h + 2, "wood")
+        B(v, -1, w + 1, 0, 1, 0, 1, "stone")            # kicker
+        B(v, -1, w + 1, -1, 0, h + 2, h + 3, "wood")    # cap rail
+        return v
+    return build
+
+
 # ---------------------------------------------------------------- registry
 # name -> (builder, takes_lite)
 TOWN_BUILDERS = [
@@ -788,6 +841,15 @@ TOWN_BUILDERS = [
     ("bodega-pier-crane", pier_crane, False),
     ("bodega-pier-steps", pier_steps, False),
     ("bodega-harbor-shed", harbor_shed, True),
+    ("bodega-board-wall-12x6", board_wall(12, 6), False),
+    ("bodega-board-wall-24x8", board_wall(24, 8), False),
+    ("bodega-board-wall-36x12", board_wall(36, 12), False),
+    ("bodega-board-roof-12x6", board_roof(12, 6), False),
+    ("bodega-board-roof-24x8", board_roof(24, 8), False),
+    ("bodega-board-roof-36x12", board_roof(36, 12), False),
+    ("bodega-board-free-12x6", board_free(12, 6), False),
+    ("bodega-board-free-24x8", board_free(24, 8), False),
+    ("bodega-board-free-36x12", board_free(36, 12), False),
 ]
 
 ALL_BUILDERS = {n: (fn, n in bc.LITE_BUILDERS) for n, fn in bc.BUILDERS}

@@ -75,6 +75,10 @@ PALETTE = [
     ("soil",         ( 88,  66,  48)),  # 35 planter soil
     ("crane",        (204, 160,  52)),  # 36 crane yellow
     ("lamp",         (240, 220, 160)),  # 37 lamp glass
+    ("art_face",     (202, 166, 106)),  # 38 blank-art reserve (#308): near-plaster,
+                                        # exactly separable from plaster (198,162,102).
+                                        # Unassigned it renders as wall plaster (note 1);
+                                        # the game routes it to the board material by colour.
 ]
 
 C = {name: i + 1 for i, (name, _) in enumerate(PALETTE)}
@@ -90,36 +94,40 @@ C = {name: i + 1 for i, (name, _) in enumerate(PALETTE)}
 
 VARIANT_EXTRA = {
     "cement": [
-        ("concrete",       (170, 169, 161)),  # 38 drab bare concrete
-        ("concrete_dark",  (131, 130, 122)),  # 39
-        ("trim_gray",      (146, 145, 137)),  # 40 weathered gray trim
-        ("trim_gray_dark", (106, 105,  97)),  # 41
-        ("awn_gray",       (148, 146, 138)),  # 42 faded awning stripe
-        ("awn_offwhite",   (210, 206, 196)),  # 43
+        ("concrete",       (170, 169, 161)),  # 39 drab bare concrete
+        ("concrete_dark",  (131, 130, 122)),  # 40
+        ("trim_gray",      (146, 145, 137)),  # 41 weathered gray trim
+        ("trim_gray_dark", (106, 105,  97)),  # 42
+        ("awn_gray",       (148, 146, 138)),  # 43 faded awning stripe
+        ("awn_offwhite",   (210, 206, 196)),  # 44
+        ("art_concrete",   (174, 173, 165)),  # 45 blank-art reserve, near-concrete
     ],
     "brick": [
-        ("brick",           (150,  88,  64)),  # 38 exposed red-brown brick
-        ("brick_dark",      (112,  62,  46)),  # 39 mortar shadow
-        ("trim_white",      (219, 213, 199)),  # 40 faded off-white painted trim
-        ("trim_white_dark", (171, 165, 151)),  # 41
-        ("awn_faded_teal",  (120, 150, 144)),  # 42 sun-bleached canvas
-        ("awn_faded_cream", (213, 203, 183)),  # 43
+        ("brick",           (150,  88,  64)),  # 39 exposed red-brown brick
+        ("brick_dark",      (112,  62,  46)),  # 40 mortar shadow
+        ("trim_white",      (219, 213, 199)),  # 41 faded off-white painted trim
+        ("trim_white_dark", (171, 165, 151)),  # 42
+        ("awn_faded_teal",  (120, 150, 144)),  # 43 sun-bleached canvas
+        ("awn_faded_cream", (213, 203, 183)),  # 44
+        ("art_brick",       (154,  92,  68)),  # 45 blank-art reserve, near-brick
     ],
     "mural": [
-        ("turquoise",      (126, 198, 190)),  # 38 flagship turquoise plaster
-        ("patch_concrete", (158, 148, 134)),  # 39 exposed concrete under paint
-        ("patch_pink",     (234, 174, 172)),  # 40 faded coral-pink paint patches
+        ("turquoise",      (126, 198, 190)),  # 39 flagship turquoise plaster
+        ("patch_concrete", (158, 148, 134)),  # 40 exposed concrete under paint
+        ("patch_pink",     (234, 174, 172)),  # 41 faded coral-pink paint patches
+        ("art_turquoise",  (130, 202, 194)),  # 42 blank-art reserve, near-turquoise
     ],
 }
 
 VARIANT_REMAP = {
     "cement": {"plaster": "concrete", "plaster_dark": "concrete_dark",
                "teal": "trim_gray", "teal_dark": "trim_gray_dark",
-               "awn_a": "awn_gray", "awn_b": "awn_offwhite"},
+               "awn_a": "awn_gray", "awn_b": "awn_offwhite", "art_face": "art_concrete"},
     "brick": {"plaster": "brick", "plaster_dark": "brick_dark",
               "teal": "trim_white", "teal_dark": "trim_white_dark",
-              "awn_a": "awn_faded_teal", "awn_b": "awn_faded_cream"},
-    "mural": {"plaster": "turquoise", "plaster_dark": "patch_concrete"},
+              "awn_a": "awn_faded_teal", "awn_b": "awn_faded_cream", "art_face": "art_brick"},
+    "mural": {"plaster": "turquoise", "plaster_dark": "patch_concrete",
+              "art_face": "art_turquoise"},
 }
 
 VARIANTS = ("bodega", "cement", "brick", "mural")
