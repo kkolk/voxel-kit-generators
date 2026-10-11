@@ -13,7 +13,9 @@ Rig parts, one design frame shared with zsu_aa_v2:
   t54_hull_v1    static: zsu_aa_v2 hull + attachments (rear fuel drums,
                  fender fuel tanks, left exhaust, glacis splash board,
                  spare track links, unditching log)
-  zsu2_tracks_v1 reused unchanged (written here too, tread-scroll shader)
+  t54_tracks_v1  zsu_aa_v2 tracks geometry unchanged, written in THIS frame
+                 (the T-54 file frame is offset y-4 from zsu2's, so the
+                 zsu2_tracks_v1 file would sit 4 voxels off); tread shader
   t54_turret_v1  traverse about z at TRAVERSE_PIVOT
   t54_gun_v1     elevation about x at ELEVATION_PIVOT (child of turret);
                  authored at 0 deg pointing +y; IR searchlight rides it
@@ -381,7 +383,7 @@ for part in (tracks_v, hull_v, turret_v, gun_v, pintle_v, mg_v):
 
 PARTS = {
     "t54_hull_v1": hull_v,
-    "zsu2_tracks_v1": tracks_v,
+    "t54_tracks_v1": tracks_v,
     "t54_turret_v1": turret_v,
     "t54_gun_v1": gun_v,
     "t54_pintle_v1": pintle_v,
