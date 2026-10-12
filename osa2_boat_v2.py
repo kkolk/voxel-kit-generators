@@ -10,7 +10,10 @@ orange lockers. Round 2 (judge scores): horizontal strake shading on the
 flare, linear evenly-spaced sheer, hull flares from the boot band, radar
 panel at 70%, bridge one row taller and full-width, no stern props.
 Contracts unchanged from v1: part split, voxel scales, ~18 m hull, box tilt
-12° and mouth centres (MISSILE_SEATS/MISSILE_DIR), WATERLINE_Z, bow = -y.
+12° (MISSILE_DIR), WATERLINE_Z, bow = -y. Round 3 (owner: shrink boxes):
+launch boxes resized to the halved P-15 — length 34, bore 5.4/R 6.5,
+centres outboard at x 8.0/35.0, mouths y 48/118 z 39; MISSILE_SEATS moved
+with the mouths.
 
 Reference: owner concept sheet "OSA II CLASS MISSILE BOAT" (grey hull, oxide
 red deck with a bright red deck-edge trim, light-grey stepped deckhouse,
@@ -49,11 +52,12 @@ Landmarks (file voxel cells, for agents without vision):
          hull shell   x 0..43   y 0..179   z 0..29 (flare from boot band up)
          deckhouse    x 16..27  y 38..104  z 25..34; bridge x 16..27
                       y 35..63 to z 47 (stepped, flat front), wings z 45
-         aft house    x 17..26  y 150..164 z 25..30 (low, fixed, no gun)
-         launch boxes LAUNCHERS list: port/starboard x 9.5 / 33.5, r 5.5
-                      chamfered-box profile; forward pair mouth y 48 ->
-                      rear y~107; aft pair mouth y 118 -> rear y~177;
-                      mouths at z 39, front higher.
+         mast         solid pylon x 20..23, y 63..68, z 35..80
+         radome       centre (21.5, 122, 59), r 9, on a stepped tower z 25..50
+         launch boxes LAUNCHERS list: port/starboard x 8.0 / 35.0, outer
+                      half 6.5 (bore 5.4), length 34 along the 12° axis;
+                      forward pair mouth y 48 -> rear y~81; aft pair mouth
+                      y 118 -> rear y~151; mouths at z 39, front higher.
   Links  turret sits on the hull's GUN_RING top z=TURRET_DECK_Z at hull
          cell TURRET_MOUNT (x, y); radar sits on the mast top at hull cell
          RADAR_MOUNT (x, y, z).
@@ -458,32 +462,36 @@ TURRET_DECK_Z = 30                 # hull cell row the turret's floor sits on (t
 
 # --- launch boxes ---------------------------------------------------------------
 
-BOX_R = 5.5           # outer radius (cells): 1.1 m dia
-BOX_LEN = 60          # 6.0 m (the 5.85 m P-15 fits)
+BOX_R = 6.5           # outer half-extent (cells): bore 5.4 + ~1 cell wall
+BOX_LEN = 34          # 3.4 m along the axis (round 3: sized to the halved P-15)
 BOX_TILT = math.radians(12.0)
 MISSILE_DIR = (0.0, -math.cos(BOX_TILT), math.sin(BOX_TILT))
-# (x centre, front-mouth y, front-mouth axis z) per box
+# (x centre, front-mouth y, front-mouth axis z) per box. Round 3: centres
+# moved outboard (9.5->8.0 / 33.5->35.0) so a red deck strip shows between
+# each box and the house (x16..27) and between box and deck edge.
 LAUNCHERS = [
-    (9.5, 48.0, 39.0),    # port forward (beside the bridge)
-    (33.5, 48.0, 39.0),   # starboard forward
-    (9.5, 118.0, 39.0),   # port aft (~1.1 m gap behind the forward box)
-    (33.5, 118.0, 39.0),  # starboard aft
+    (8.0, 48.0, 39.0),    # port forward (beside the bridge)
+    (35.0, 48.0, 39.0),   # starboard forward
+    (8.0, 118.0, 39.0),   # port aft
+    (35.0, 118.0, 39.0),  # starboard aft
 ]
 
 
 def launch_box(d, cx, yf, zf):
     """A chamfered-box launcher whose mouth centre is (cx, yf, zf), running
     aft (+y) and down at BOX_TILT for BOX_LEN cells. Cross-section is a
-    superellipse (|u|^4+|v|^4 <= R^4): flat sides, chamfered corners — the
-    concept's box, not v1's tube. Extent (R=5.5), tilt and mouth centre are
-    unchanged, so the top stays at z~44.5 (below the bridge roof) and the
-    P-15 bore/seats contract is intact."""
+    superellipse (|u|^4+|v|^4 <= R^4): flat sides, chamfered corners.
+    Round 3 sizing (halved P-15, P15_VOXEL 0.0225): missile 3.03 m long
+    (nose y0 to booster nozzle y134, fine cells), folded cross-section
+    10.4 x 9.7 hull cells (tailplanes x10..55, fin to z46, booster to z3,
+    fine cells x0.225) -> bore half 5.4, outer R 6.5 (~1 cell wall),
+    length 34 = missile + ~0.3 m. Top at z~45.5, below the bridge roof."""
     ax = (0.0, math.cos(BOX_TILT), -math.sin(BOX_TILT))   # mouth -> rear
     yr = yf + BOX_LEN * ax[1]
     zr = zf + BOX_LEN * ax[2]
     ylo, yhi = int(yf) - 2, int(yr) + 2
     zlo, zhi = int(min(zf, zr) - BOX_R) - 2, int(max(zf, zr) + BOX_R) + 2
-    rin = BOX_R - 1.6
+    rin = BOX_R - 1.1
     for x in range(int(cx - BOX_R) - 1, int(cx + BOX_R) + 2):
         for y in range(ylo, yhi + 1):
             for z in range(zlo, zhi + 1):
