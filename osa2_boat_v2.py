@@ -6,7 +6,9 @@ black boot-top, stepped bridge with square windows, solid tapered mast with
 a planar-array radar, chamfered-box (not tube) launchers, bigger radome on a
 stepped square tower, lower aft house + open quarterdeck with a big ensign,
 boxy fore turret, smoother oxide deck with brighter trim, round life rings,
-orange lockers, twin shafts/props/rudders under the stern.
+orange lockers. Round 2 (judge scores): horizontal strake shading on the
+flare, linear evenly-spaced sheer, hull flares from the boot band, radar
+panel at 70%, bridge one row taller and full-width, no stern props.
 Contracts unchanged from v1: part split, voxel scales, ~18 m hull, box tilt
 12° and mouth centres (MISSILE_SEATS/MISSILE_DIR), WATERLINE_Z, bow = -y.
 
@@ -41,13 +43,12 @@ Landmarks (file voxel cells, for agents without vision):
          the stem rakes back below the waterline.
   WATERLINE z=10 (WATERLINE_Z): hull below it is the dark bottom colour,
          boot-top z 10..12. Sit the model so z=10 is at the sea surface.
-  DECK   z=24 at the stern rising to z=29 at the bow (DECK_Z(y)).
+  DECK   z=24 at the stern rising linearly to z=29 at the bow (DECK_Z(y);
+         1-cell steps evenly spaced every 30 stations).
   Hull parts (coarse cells):
-         hull shell   x 0..43   y 0..179   z 0..29
-         deckhouse    x 16..27  y 38..104  z 25..34; bridge x 17..26
-                      y 34..62 to z 50 (stepped, flat front), wings z 47
-         mast         solid pylon x 20..23, y 63..68, z 35..80
-         radome       centre (21.5, 122, 58), r 9, on a stepped tower z 25..49
+         hull shell   x 0..43   y 0..179   z 0..29 (flare from boot band up)
+         deckhouse    x 16..27  y 38..104  z 25..34; bridge x 16..27
+                      y 35..63 to z 47 (stepped, flat front), wings z 45
          aft house    x 17..26  y 150..164 z 25..30 (low, fixed, no gun)
          launch boxes LAUNCHERS list: port/starboard x 9.5 / 33.5, r 5.5
                       chamfered-box profile; forward pair mouth y 48 ->
@@ -98,12 +99,13 @@ WATERLINE_Z = 10
 
 
 def DECK_Z(y):
-    """Deck top row at station y: 24 aft rising smoothly to 29 at the bow.
-    One-cell steps are spread ~15+ stations apart over the forward 140
-    rows (never clustered at the stem), so the deck line and the red trim
-    on it read as one continuous curve, not v1's stepped jump at the bow."""
-    t = max(0.0, 1.0 - y / 140.0)
-    return 24 + int(round(5 * t * t))
+    """Deck top row at station y: 24 aft rising to 29 at the bow, LINEAR
+    sheer (round 2): the five 1-cell steps land at y=15/45/75/105/135 —
+    evenly spaced every 30 stations — so the deck line and red trim read
+    as one smooth curve with no clustered jump (the v2 quadratic
+    clustered its first step 7 stations off the stem)."""
+    t = max(0.0, 1.0 - y / 150.0)
+    return 24 + int(round(5 * t))
 
 
 def put(d, x, y, z, c):
@@ -145,19 +147,18 @@ def half_beam(y, z):
         plan = 1.0 - 0.06 * (y - 160) / 19.0
     else:
         plan = 1.0
-    # section: V below the waterline; above it the bow flares hard to the
-    # deck edge while mid/aft stays slab-sided (concept front view)
+    # section: V below the waterline; above the boot band the whole hull
+    # flares continuously to the deck edge (round 2), the bow hardest
     if z < WATERLINE_Z:
-        sec = 0.42 + 0.58 * (z / WATERLINE_Z)
+        sec = 0.42 + 0.48 * (z / WATERLINE_Z)
         if y < 64:
             sec *= 0.82 + 0.18 * (y / 64.0)
     else:
         zt = DECK_Z(y)
         frac = (z - WATERLINE_Z) / max(1, zt - WATERLINE_Z)
+        sec = 0.90 + 0.14 * frac
         if y < 80:
-            sec = 0.90 + 0.13 * frac * (1.0 - y / 80.0) + 0.02 * frac
-        else:
-            sec = 0.98 + 0.02 * frac
+            sec += 0.03 * frac * (1.0 - y / 80.0)
     return (B / 2.0) * plan * sec
 
 
@@ -212,6 +213,11 @@ def hull():
             c = "boot"
         elif z >= zt - 1:
             c = "hull_light"
+        elif (z - WATERLINE_Z) % 4 == 1:
+            # horizontal strake line (round 2): the flare is shaded by ROW,
+            # so the eye reads strakes, not the per-column zebra the bow
+            # staircase otherwise prints on the flare
+            c = "house_dark"
         else:
             c = "hull"
         put(d, x, y, z, c)
@@ -235,13 +241,6 @@ def hull():
             hb = half_beam(y, 18)
             x = int(math.floor(CX - hb + 0.5)) if side == 0 else int(math.floor(CX + hb - 0.5))
             put(d, x, y, 18, "glass")
-    # underwater stern gear (concept side/45°): twin shafts, bronze props,
-    for sx in (14, 28):
-        for y in range(166, 181):
-            put(d, sx, y, 4, "bronze"); put(d, sx + 1, y, 4, "bronze")
-        disk_y(d, sx + 0.5, 4.5, 3.4, 181, "bronze")
-        disk_y(d, sx + 0.5, 4.5, 3.4, 182, "bronze")
-        box(d, sx, sx + 1, 183, 184, 2, 8, "bronze")
     return d, solid
 
 
@@ -286,13 +285,14 @@ def deckhouse(d):
     # long low deckhouse between the launch boxes (step 1)
     box(d, 16, 27, 38, 104, 25, 33, "house")
     box(d, 16, 27, 38, 104, 34, 34, "house_dark")   # roof edge line
-    # bridge block (step 2): narrower than the deckhouse, flat front, sits
-    # low — roof z46 against the boxes' z44.5 tops (judge: sit low)
-    box(d, 17, 26, 36, 62, 34, 46, "house")
-    box(d, 16, 27, 35, 63, 46, 46, "house_dark")     # bridge roof, overhanging
-    box(d, 13, 30, 50, 56, 44, 44, "house_dark")     # bridge wings
+    # bridge block (step 2): full deckhouse width + one row taller than
+    # round 1 (roof z47) so it reads as the dominant forward block, while
+    # still sitting low against the boxes' z44.5 tops
+    box(d, 16, 27, 36, 62, 34, 47, "house")
+    box(d, 15, 28, 35, 63, 47, 47, "house_dark")     # bridge roof, overhanging
+    box(d, 13, 30, 50, 56, 45, 45, "house_dark")     # bridge wings
     for x in (13, 30):
-        for z in (45, 46):
+        for z in (46, 47):
             for y in range(50, 57):
                 put(d, x, y, z, "steel")             # wing screens
     box(d, 17, 26, 63, 70, 35, 40, "house")          # step aft of the bridge (mast house)
@@ -300,18 +300,18 @@ def deckhouse(d):
     for x in (18, 20, 22, 24, 25):
         box(d, x, x, 36, 36, 42, 43, "glass")
     for y in (42, 47, 52, 57):
-        box(d, 17, 17, y, y, 42, 43, "glass"); box(d, 26, 26, y, y, 42, 43, "glass")
-    box(d, 17, 26, 36, 36, 38, 38, "house_dark")     # ledge under the windows
+        box(d, 16, 16, y, y, 42, 43, "glass"); box(d, 27, 27, y, y, 42, 43, "glass")
+    box(d, 16, 27, 36, 36, 38, 38, "house_dark")     # ledge under the windows
     # chart house (step 3) on the bridge roof + orange director on top
-    box(d, 19, 24, 48, 58, 47, 49, "house")
+    box(d, 19, 24, 48, 58, 48, 50, "house")
     for x in (20, 22):
-        put(d, x, 48, 48, "glass")
-    box(d, 20, 23, 52, 55, 50, 51, "ring")           # orange director housing
-    box(d, 21, 22, 53, 54, 52, 52, "dark")           # director optics
+        put(d, x, 48, 49, "glass")
+    box(d, 20, 23, 52, 55, 51, 52, "ring")           # orange director housing
+    box(d, 21, 22, 53, 54, 53, 53, "dark")           # director optics
     # lower bridge-front portholes and a door each side
     for x in (19, 24):
         put(d, x, 36, 35, "glass"); put(d, x, 36, 36, "glass")
-    for x in (17, 26):
+    for x in (16, 27):
         box(d, x, x, 52, 54, 40, 42, "house_dark")
     # deckhouse side doors and windows
     for y in (72, 88, 98):
@@ -321,7 +321,7 @@ def deckhouse(d):
         for x in (16, 27):
             put(d, x, y, 31, "glass")
     # round life rings on the bridge + deckhouse sides (concept: orange)
-    for x in (17, 26):
+    for x in (16, 27):
         life_ring(d, x, 59, 40)
     for x in (16, 27):
         life_ring(d, x, 82, 30)
@@ -596,15 +596,15 @@ def radar():
     disk_z(d, RX, RY, 1.6, 0, "steel")
     for z in range(1, 3):
         put(d, 7, 3, z, "steel"); put(d, 8, 3, z, "steel")
-    # tall planar array (concept): gridded panel on a mount, back braced
-    box(d, 1, 14, 2, 3, 3, 12, "house")              # panel
-    box(d, 1, 14, 4, 4, 3, 12, "house_dark")         # back
-    for x in range(2, 14, 3):
-        for z in range(4, 12, 3):
+    # planar array at ~70% of round 1 (round 2): 10 wide x 7 tall panel
+    box(d, 3, 12, 2, 3, 3, 9, "house")               # panel
+    box(d, 3, 12, 4, 4, 3, 9, "house_dark")          # back
+    for x in range(4, 12, 3):
+        for z in range(4, 9, 3):
             put(d, x, 2, z, "house_dark"); put(d, x + 1, 2, z, "house_dark")   # grid cells
     box(d, 7, 8, 3, 4, 1, 3, "steel")                # mount neck
-    box(d, 0, 0, 2, 3, 5, 7, "house")                # side boxes on the panel ends
-    box(d, 15, 15, 2, 3, 5, 7, "house")
+    box(d, 2, 2, 2, 3, 5, 6, "house")                # side boxes on the panel ends
+    box(d, 13, 13, 2, 3, 5, 6, "house")
     return d
 
 
