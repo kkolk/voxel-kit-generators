@@ -313,3 +313,33 @@ def resample(d, s):
         out[(math.floor(x * s), math.floor(y * s),
              math.floor(z * s))] = v
     return out
+
+
+def stone_courses(d, CI, x0, x1, y0, y1, z0, z1, tones, seam="stone_dark",
+                  course=2, block=3):
+    """Ashlar masonry fill over the box (face reads on any side): courses
+    `course` high with a 1-thick dark mortar line between courses, blocks
+    `block` wide with staggered vertical mortar joints. Faces cycle flat
+    per-block tones (never per-voxel noise). Fills the full box solid."""
+    for z in range(z0, z1):
+        if (z - z0) % course == course - 1 and z + 1 < z1:
+            box(d, CI, x0, x1, y0, y1, z, z + 1, seam)
+            continue
+        ci = (z - z0) // course
+        off = (block // 2) if (ci % 2) else 0
+        for x in range(x0, x1):
+            if (x - x0 + off) % block == 0:
+                c = seam
+            else:
+                c = tones[((x - x0 + off) // block + ci) % len(tones)]
+            for y in range(y0, y1):
+                d[(x, y, z)] = CI[c]
+
+
+def ammo_can(d, CI, x, y, z, base="can", dark="can_dark", lite="can_lite"):
+    """2x2x2 ammo can at min corner (x,y,z): dark metal body, light lid
+    with a dark latch on the front face, flat handle bar across the top."""
+    box(d, CI, x, x + 2, y, y + 2, z, z + 1, base)
+    box(d, CI, x, x + 2, y, y + 2, z + 1, z + 2, lite)
+    d[(x, y, z + 1)] = CI[dark]  # latch (front face)
+    box(d, CI, x, x + 2, y, y + 1, z + 2, z + 3, dark)  # handle bar
