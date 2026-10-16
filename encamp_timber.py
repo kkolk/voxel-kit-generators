@@ -215,6 +215,33 @@ def knee(d, CI, x, y, z, dx, dy, n, color="timber"):
         if i > 0:
             d[(x + dx * i, y + dy * i, z + i - 1)] = CI[color]
 
+
+def line6(d, CI, a, b, color="rope"):
+    """6-connected staircase line from voxel a to voxel b (inclusive).
+
+    Steps one axis per voxel toward the target, longest remaining delta
+    first, so diagonals read as staircases with no corner-only touches:
+    the whole line is one 6-connected component. For guy wires, rigging,
+    railings. Fills both endpoints."""
+    x, y, z = a
+    x1, y1, z1 = b
+    d[(x, y, z)] = CI[color]
+    while (x, y, z) != (x1, y1, z1):
+        dx, dy, dz = x1 - x, y1 - y, z1 - z
+        ax, ay, az = abs(dx), abs(dy), abs(dz)
+        if ax >= ay and ax >= az and dx != 0:
+            x += 1 if dx > 0 else -1
+        elif ay >= ax and ay >= az and dy != 0:
+            y += 1 if dy > 0 else -1
+        elif dz != 0:
+            z += 1 if dz > 0 else -1
+        elif dx != 0:
+            x += 1 if dx > 0 else -1
+        else:
+            y += 1 if dy > 0 else -1
+        d[(x, y, z)] = CI[color]
+
+
 def read_vox(path):
     """Read a MagicaVoxel .vox file (stdlib only). Returns
     (vox {(x,y,z): ci0}, palette [(r,g,b) x 256], (sx,sy,sz)) where ci0
