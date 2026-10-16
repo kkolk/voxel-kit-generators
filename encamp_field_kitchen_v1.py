@@ -352,11 +352,16 @@ PARTS = {"body": body, "smoke": smoke, "assembled": assembled}
 def write_vox(path, vox, palette=None):
     import struct
     pal = palette or BASE_PALETTE
+    # Shared encampment frame (every other encamp_*_v1 writer): file coords
+    # are design coords shifted so min x/y land on 0, z-up raw (the game
+    # reader assumes z-up; the old (x, z, y) Magica y-up swap mirrored the
+    # piece against its landmark constants).
     xs = [p[0] for p in vox]; ys = [p[1] for p in vox]; zs = [p[2] for p in vox]
-    sx, sy, sz = max(xs) + 1, max(ys) + 1, max(zs) + 1
+    xoff, yoff = -min(xs), -min(ys)
+    sx, sy, sz = max(xs) + xoff + 1, max(ys) + yoff + 1, max(zs) + 1
     xyzi = bytearray()
     for (x, y, z), ci in sorted(vox.items()):
-        xyzi += struct.pack("BBBB", x, z, y, ci)  # z-up -> magica y-up
+        xyzi += struct.pack("BBBB", x + xoff, y + yoff, z, ci)
     rgba = bytearray()
     for i in range(256):
         if i < len(pal):

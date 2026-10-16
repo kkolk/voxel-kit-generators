@@ -317,7 +317,7 @@ def write_vox(path, vox, palette=PALETTE):
         xyzi = struct.pack("<i", len(vox))
         for (x, y, z), c in vox.items():
             xyzi += struct.pack("BBBB", x, y, z, c)
-        f.write(b"XYZI"); f.write(struct.pack("<ii", 4 + len(xyzi), 0)); f.write(xyzi)
+        f.write(b"XYZI"); f.write(struct.pack("<ii", len(xyzi), 0)); f.write(xyzi)
         pal = b"".join(struct.pack("BBBB", r, g, b, 255) for _, (r, g, b) in palette)
         pal += struct.pack("BBBB", 0, 0, 0, 0) * (256 - len(palette))
         f.write(b"RGBA"); f.write(struct.pack("<ii", 1024, 0)); f.write(pal)
