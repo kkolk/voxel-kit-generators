@@ -343,3 +343,24 @@ def ammo_can(d, CI, x, y, z, base="can", dark="can_dark", lite="can_lite"):
     box(d, CI, x, x + 2, y, y + 2, z + 1, z + 2, lite)
     d[(x, y, z + 1)] = CI[dark]  # latch (front face)
     box(d, CI, x, x + 2, y, y + 1, z + 2, z + 3, dark)  # handle bar
+
+
+def canvas_panel_wall(d, CI, x0, x1, y0, y1, z0, z1, tones, seam="canvas_dark",
+                      hem="canvas_dark", hem_courses=1, panel=5, axis="x"):
+    """Vertical canvas tent wall over the box: flat per-panel tones cycling
+    along `axis` ("x" or "y"), a 1-wide dark `seam` column between panels,
+    and a `hem` dark band `hem_courses` high along the bottom. Deterministic,
+    never per-voxel noise. Fills the full box solid (for 1-thick walls pass
+    e.g. y0+1 == y1). Gable triangles are the caller's loop; this covers the
+    rectangular courses."""
+    for z in range(z0, z1):
+        for x in range(x0, x1):
+            for y in range(y0, y1):
+                k = (x - x0) if axis == "x" else (y - y0)
+                if z < z0 + hem_courses:
+                    c = hem
+                elif k % panel == 0:
+                    c = seam
+                else:
+                    c = tones[(k // panel) % len(tones)]
+                d[(x, y, z)] = CI[c]
