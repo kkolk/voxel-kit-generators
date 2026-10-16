@@ -245,6 +245,7 @@ def dirt_patch_pad(d, CI, rng, x0, x1, y0, y1,
                 h = ((x // 4) * 73856093 ^ (y // 4) * 19349663) % 100
                 if h < 55:
                     c = base
+
                 elif h < 70:
                     c = dark
                 elif h < 82:
@@ -252,3 +253,140 @@ def dirt_patch_pad(d, CI, rng, x0, x1, y0, y1,
                 else:
                     c = light
             d[(x, y, 0)] = CI[c]
+
+
+def sandbag_bond_course(d, CI, x0, x1, y0, y1, z, axis, tones, seam,
+                        rng, stagger=0):
+    """One 2-tall course of ~4-long x 2-across sandbags in running bond,
+    filling x0..x1-1 by y0..y1-1 at z..z+1 with no see-through gaps
+    (cross width must be 2). axis 'x': bags run along x; 'y': along y.
+    Bags are 4 or 5 long (random), each one flat tone from `tones`
+    (adjacent bags never share a tone), separated by 1-voxel `seam`
+    joints; `stagger` (course offset in voxels) breaks joints between
+    stacked courses."""
+    tones_ci = [CI[t] for t in tones]
+    seam_ci = CI[seam]
+    n = (x1 - x0) if axis == "x" else (y1 - y0)
+    m = (y1 - y0) if axis == "x" else (x1 - x0)
+    i = -stagger
+    prev = -1
+    while i < n:
+        end = min(n, i + 4 + (1 if rng.random() < 0.3 else 0))
+        ti = rng.randrange(len(tones_ci))
+        if ti == prev:                    # adjacent bags never share a tone
+            ti = (ti + 1 + rng.randrange(len(tones_ci) - 1)) % len(tones_ci)
+        prev = ti
+        for k in range(max(0, i), end + (1 if end < n else 0)):
+            ci = seam_ci if k == end else tones_ci[ti]
+            for j in range(m):
+                for zz in (z, z + 1):
+                    if axis == "x":
+                        d[(x0 + k, y0 + j, zz)] = ci
+                    else:
+                        d[(x0 + j, y0 + k, zz)] = ci
+        i = end + 1
+
+
+def sandbag_bond_wall(d, CI, rng, x0, x1, y0, y1, z0, courses, tones,
+                      seam, axis="x"):
+    """Running-bond sandbag wall: `courses` stacked 2-tall courses from
+    z0, each staggered 2 voxels (half a bag) from the course below."""
+    for k in range(courses):
+        sandbag_bond_course(d, CI, x0, x1, y0, y1, z0 + 2 * k, axis,
+                            tones, seam, rng, stagger=2 * (k % 2))
+
+
+def ammo_can(d, CI, x, y, z, body_c="can", lid="can_lite",
+             latch="can_dark"):
+    """3x2x2 ammunition can at min corner (x, y, z): body colour, a
+    lighter lid strip on top, a latch voxel on the front face."""
+    box(d, CI, x, x + 3, y, y + 2, z, z + 2, body_c)
+    box(d, CI, x, x + 3, y, y + 2, z + 2, z + 3, lid)
+    d[(x + 1, y, z + 1)] = CI[latch]
+
+
+def lantern(d, CI, x, y, z, glow="lantern_glow", frame="metal_dark"):
+    """2x2 lantern hanging on a post face at (x, y), z..z+3: dark cap
+    plate, glowing body core, dark corner ribs on the top body row."""
+    box(d, CI, x, x + 2, y, y + 2, z, z + 1, frame)
+    box(d, CI, x, x + 2, y, y + 2, z + 1, z + 3, glow)
+    for cx in (x, x + 1):
+        for cy in (y, y + 1):
+            d[(cx, cy, z + 2)] = CI[frame]
+
+
+def grass_tuft(d, CI, x, y, rng, grass="grass", grass_dark="grass_dark"):
+    """Small tuft standing on the pad: a dark base voxel plus 2-3
+    supported sprigs at z=2 (never floating). Skips cells the pad
+    didn't fill (ragged-edge nibbles) so nothing floats."""
+    if (x, y, 0) not in d:
+        return
+    d[(x, y, 1)] = CI[grass_dark]
+    for _ in range(2 + rng.randrange(2)):
+        dx, dy = rng.randrange(-1, 2), rng.randrange(-1, 2)
+        if (x + dx, y + dy, 0) not in d:
+            continue
+        d.setdefault((x + dx, y + dy, 1), CI[grass_dark])
+        d[(x + dx, y + dy, 2)] = CI[grass if rng.random() < 0.6 else grass_dark]
+
+
+def _vnoise(x, y, cell=4.5):
+    """Low-frequency value noise 0..1 (cell size `cell`, smoothstep)."""
+    gx, gy = x / cell, y / cell
+    ix, iy = int(gx), int(gy)
+    fx, fy = gx - ix, gy - iy
+    sx, sy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
+
+    def h(a, b):
+        return ((a * 73 + b * 149) % 97) / 97.0
+
+    lo = h(ix, iy) * (1 - sx) + h(ix + 1, iy) * sx
+    hi = h(ix, iy + 1) * (1 - sx) + h(ix + 1, iy + 1) * sx
+    return lo * (1 - sy) + hi * sy
+
+
+def camo_net(d, CI, rng, x0, x1, y0, y1, z, tones, cover=0.62, cell=5.0):
+    """Ragged camo net: one flat 1-voxel sheet at level z over the rect,
+    coloured in LARGE irregular value-noise blotches (4-8 voxels across,
+    `cell` sets the blob scale) from `tones`, `cover` fill fraction.
+    Filled perimeter rim with drooping edge voxels (z-1, a few z-2) and
+    interior sag blotches at z-1. Not a checkerboard; every voxel hangs
+    off the sheet, so it stays one 6-connected component."""
+    cells = []
+    for x in range(x0, x1):
+        for y in range(y0, y1):
+            rim = x in (x0, x1 - 1) or y in (y0, y1 - 1)
+            if rim or _vnoise(x, y, cell) > (1.0 - cover):
+                cells.append((x, y))
+    for (x, y) in cells:
+        tone = CI[tones[int(_vnoise(x + 53, y + 71, cell) * 99.99) % len(tones)]]
+        d[(x, y, z)] = tone
+        if x in (x0, x1 - 1) or y in (y0, y1 - 1):
+            if rng.random() < 0.45:
+                d.setdefault((x, y, z - 1), tone)
+                if rng.random() < 0.25:
+                    d[(x, y, z - 2)] = CI[
+                        tones[int(_vnoise(x + 5, y + 9, cell) * 99.99) % len(tones)]]
+        elif _vnoise(x + 91, y + 17, cell) < 0.18:
+            d[(x, y, z - 1)] = CI[
+                tones[int(_vnoise(x + 17, y + 39, cell) * 99.99) % len(tones)]]
+
+
+def flag_mast(d, CI, x, y, z0, z1, color="mast_dark", cap="timber_dark",
+              rope="rope"):
+    """Slim 1x1 mast from z0 to z1-1 with rope bands near the top and
+    a finial voxel."""
+    pole(d, CI, x, y, z0, z1, color)
+    d[(x, y, z1 - 1)] = CI[cap]
+    d[(x, y, z1 - 4)] = CI[rope]
+    d[(x, y, z1 - 8)] = CI[rope]
+
+
+def flag_chevron(d, CI, x0, y, z0, w, h, bg, mark, thick=1):
+    """Flag w (along x) by h (along z), 1 voxel thick at y: `bg` field
+    with a chevron in `mark` (1 line, or 2 with thick=2)."""
+    for i in range(w):
+        jc = int(round((h - 1) * (1 - abs(2.0 * i / (w - 1) - 1))))
+        for j in range(h):
+            m = j == jc or (thick == 2 and j == jc - 1)
+            d[(x0 + i, y, z0 + j)] = CI[mark if m else bg]
