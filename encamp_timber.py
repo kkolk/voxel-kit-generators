@@ -266,6 +266,47 @@ def line6(d, CI, a, b, color="rope"):
         d[(x, y, z)] = CI[color]
 
 
+def barbed_run_x(d, CI, x0, x1, y, z, wire="wire", barb="wire_dark", every=3):
+    """One barbed-wire strand along x (x0..x1 exclusive) at (y, z) with a
+    1-voxel barb tick above the strand every `every` voxels. The strand
+    6-connects to any post it passes through; barbs ride on the strand."""
+    for x in range(x0, x1):
+        d[(x, y, z)] = CI[wire]
+        if (x - x0) % every == 0:
+            d[(x, y, z + 1)] = CI[barb]
+
+
+def barbed_run_y(d, CI, y0, y1, x, z, wire="wire", barb="wire_dark", every=3):
+    """One barbed-wire strand along y (y0..y1 exclusive) at (x, z), barbed
+    as barbed_run_x."""
+    for y in range(y0, y1):
+        d[(x, y, z)] = CI[wire]
+        if (y - y0) % every == 0:
+            d[(x, y, z + 1)] = CI[barb]
+
+
+def mesh_panel_x(d, CI, x0, x1, y, z0, z1, wire="wire", step=2):
+    """Wire-mesh infill on the x-z plane at row y: vertical wires every
+    `step` plus horizontal wires every `step`, spanning the full ranges so
+    the mesh 6-connects to a frame built around the same ranges."""
+    for x in range(x0, x1, step):
+        for z in range(z0, z1):
+            d[(x, y, z)] = CI[wire]
+    for z in range(z0, z1, step):
+        for x in range(x0, x1):
+            d[(x, y, z)] = CI[wire]
+
+
+def mesh_panel_y(d, CI, y0, y1, x, z0, z1, wire="wire", step=2):
+    """Wire-mesh infill on the y-z plane at column x, as mesh_panel_x."""
+    for y in range(y0, y1, step):
+        for z in range(z0, z1):
+            d[(x, y, z)] = CI[wire]
+    for z in range(z0, z1, step):
+        for y in range(y0, y1):
+            d[(x, y, z)] = CI[wire]
+
+
 def read_vox(path):
     """Read a MagicaVoxel .vox file (stdlib only). Returns
     (vox {(x,y,z): ci0}, palette [(r,g,b) x 256], (sx,sy,sz)) where ci0
