@@ -197,6 +197,30 @@ def hero_crate(d, CI, x, y, z, w, dp, h, trio):
                 d[(xx, yy, zz)] = CI[dark]
 
 
+def canvas_fly(d, CI, x0, x1, y0, y1, ztop, tones, seam="canvas_dark",
+               sag=1, panel=5):
+    """Flat olive canvas fly sheet over rect (x0..x1, y0..y1): height sags
+    toward the middle by up to `sag` voxels (between-post sag on a 6-post
+    fly). ztop(x, y) gives the support height; the sheet hangs at/below
+    it. Flat per-panel tones, never per-voxel noise: vertical panels
+    `panel` wide along x cycle through `tones`, with a darker `seam`
+    column between panels and one horizontal seam row at midspan.
+    Deterministic, no rng. 1 voxel thick, NOT 6-connected to anything by
+    itself: the caller lands its edges on beams/pipes."""
+    cx, cy = (x0 + x1 - 1) / 2.0, (y0 + y1 - 1) / 2.0
+    hx, hy = max((x1 - x0) / 2.0, 1.0), max((y1 - y0) / 2.0, 1.0)
+    midy = (y0 + y1) // 2
+    for x in range(x0, x1):
+        for y in range(y0, y1):
+            sag_here = sag - int(sag * min(1.0, ((x - cx) / hx) ** 2 + ((y - cy) / hy) ** 2))
+            z = ztop(x, y) - sag_here
+            if (x - x0) % panel == 0 or y == midy:
+                c = seam
+            else:
+                c = tones[((x - x0) // panel) % len(tones)]
+            d[(x, y, z)] = CI[c]
+
+
 def shaded_wall(d, CI, x0, x1, y0, y1, z0, z1, base="timber", seam="timber_dark",
                 every=3):
     """Timber/plank wall with a dark seam course every `every` layers."""
