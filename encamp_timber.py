@@ -176,3 +176,89 @@ def bbox(d):
     ys = [p[1] for p in d]
     zs = [p[2] for p in d]
     return ((min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs)))
+
+def hero_crate(d, CI, x, y, z, w, dp, h, trio):
+    """Bright hero crate w x dp x h at min corner (x,y,z). trio is a
+    (base, dark, lite) triple of palette names: flat base faces, 1-voxel
+    dark base band, light lid layer, dark vertical corner edges.
+    Min sensible size 4x3x3."""
+    base, dark, lite = trio
+    box(d, CI, x, x + w, y, y + dp, z, z + h, base)
+    for xx in range(x, x + w):                       # dark base band
+        for yy in range(y, y + dp):
+            if xx in (x, x + w - 1) or yy in (y, y + dp - 1):
+                d[(xx, yy, z)] = CI[dark]
+    for xx in range(x, x + w):                       # light lid
+        for yy in range(y, y + dp):
+            d[(xx, yy, z + h - 1)] = CI[lite]
+    for zz in range(z, z + h):                       # dark corner edges
+        for xx in (x, x + w - 1):
+            for yy in (y, y + dp - 1):
+                d[(xx, yy, zz)] = CI[dark]
+
+
+def shaded_wall(d, CI, x0, x1, y0, y1, z0, z1, base="timber", seam="timber_dark",
+                every=3):
+    """Timber/plank wall with a dark seam course every `every` layers."""
+    for z in range(z0, z1):
+        c = seam if (z - z0) % every == every - 1 else base
+        box(d, CI, x0, x1, y0, y1, z, z + 1, c)
+
+
+def knee(d, CI, x, y, z, dx, dy, n, color="timber"):
+    """Diagonal knee brace: staircase of n steps from (x,y,z) toward
+    (dx,dy,+1). Each step also fills the voxel below its tread so the
+    brace is one 6-connected component (pure diagonals only touch at
+    corners). Pass dx/dy in {-1, 0, 1} with exactly one nonzero."""
+    for i in range(n):
+        d[(x + dx * i, y + dy * i, z + i)] = CI[color]
+        if i > 0:
+            d[(x + dx * i, y + dy * i, z + i - 1)] = CI[color]
+
+def read_vox(path):
+    """Read a MagicaVoxel .vox file (stdlib only). Returns
+    (vox {(x,y,z): ci0}, palette [(r,g,b) x 256], (sx,sy,sz)) where ci0
+    is the 0-based index into palette. Preview compositing helper."""
+    import struct
+    with open(path, "rb") as f:
+        data = f.read()
+    assert data[:4] == b"VOX ", path
+    off = 8
+    assert data[off:off + 4] == b"MAIN", path
+    import struct as _s
+    _clen, _chlen = _s.unpack("<ii", data[off + 4:off + 12])
+    off += 12 + _clen
+    end = off + _chlen
+    size = None
+    xyzi = None
+    rgba = None
+    while off < end:
+        cid = data[off:off + 4]
+        clen, chlen = _s.unpack("<ii", data[off + 4:off + 12])
+        content = data[off + 12:off + 12 + clen]
+        if cid == b"SIZE":
+            size = _s.unpack("<iii", content)
+        elif cid == b"XYZI":
+            n = _s.unpack("<i", content[:4])[0]
+            xyzi = _s.unpack("<" + "BBBB" * n, content[4:4 + 4 * n])
+        elif cid == b"RGBA":
+            rgba = [tuple(content[i:i + 3]) for i in range(0, 256 * 4, 4)]
+        off += 12 + clen + chlen
+    vox = {}
+    for i in range(0, len(xyzi), 4):
+        x, y, z, ci = xyzi[i:i + 4]
+        vox[(x, y, z)] = ci - 1
+    return vox, rgba, size
+
+
+def resample(d, s):
+    """Nearest-neighbour scale of {(x,y,z): v} by factor s. Returns a new
+    dict; several source voxels may land on one target (last wins).
+    Preview compositing helper (e.g. s = 0.09 / 0.15 to drop a 0.09 m
+    vehicle into a 0.15 m scene)."""
+    import math
+    out = {}
+    for (x, y, z), v in d.items():
+        out[(math.floor(x * s), math.floor(y * s),
+             math.floor(z * s))] = v
+    return out
