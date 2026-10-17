@@ -43,9 +43,13 @@ import struct
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# 0.03 m by default; RAVEN9_VOXEL=0.06 builds the half-detail variant from
-# the same metre shapes (the soldiers' grain)
-VOXEL_M = float(os.environ.get("RAVEN9_VOXEL", "0.03"))
+# Mixed resolution (owner, 2026-10-17): the airframe shell -- body segments,
+# boom, canopy, doors, ramp -- at COARSE_M (the soldiers' 0.06 m grain); the
+# small parts -- gun, fan, hub, blade, gear, weapon pods -- at FINE_M. Every
+# shape is in metres, so each part is sampled on its own grid; use_grid()
+# switches the module grid while a part is built.
+COARSE_M, FINE_M = 0.06, 0.03
+VOXEL_M = FINE_M
 
 
 def c8(v):
@@ -53,14 +57,14 @@ def c8(v):
 
 
 PALETTE = [
-    ("hull",         (104, 110, 92)),    # olive-grey base
-    ("hull_light",   (128, 134, 114)),
-    ("hull_dark",    (70, 76, 64)),
-    ("camo_dark",    (72, 78, 68)),
-    ("camo_tan",     (132, 128, 104)),
-    ("seam",         (40, 43, 40)),
+    ("hull",         (118, 125, 133)),   # naval grey base (owner, r9)
+    ("hull_light",   (140, 147, 155)),
+    ("hull_dark",    (84, 90, 98)),
+    ("camo_dark",    (88, 95, 104)),
+    ("camo_light",   (152, 157, 162)),
+    ("seam",         (44, 48, 54)),
     ("canopy_glass", (c8(0.55), c8(0.80), c8(0.95))),   # == game CHOPPER_GLASS
-    ("frame",        (60, 64, 58)),
+    ("frame",        (66, 71, 78)),
     ("cockpit",      (c8(0.12), c8(0.12), c8(0.14))),
     ("gunmetal",     (c8(0.30), c8(0.31), c8(0.34))),
     ("steel",        (150, 154, 160)),
@@ -76,14 +80,23 @@ PALETTE = [
     ("lens",         (40, 60, 70)),
     ("missile",      (196, 196, 186)),
     ("missile_band", (184, 150, 60)),
-    ("walkway",      (60, 64, 60)),
+    ("walkway",      (70, 75, 82)),
 ]
 CI = {n: i + 1 for i, (n, _) in enumerate(PALETTE)}
 
 # ------------------------------------------------------------------ grid (file voxels, airframe)
 GRID_M = ((-3.30, 3.30), (-8.76, 6.84), (0.0, 5.40))   # airframe bounds, metres
-X0, Y0, Z0 = [int(math.floor(lo / VOXEL_M)) for lo, _ in GRID_M]
-NX, NY, NZ = [int(math.ceil(hi / VOXEL_M)) - int(math.floor(lo / VOXEL_M)) for lo, hi in GRID_M]
+
+
+def use_grid(vm):
+    """make vm the module grid (voxel size and index bounds)"""
+    global VOXEL_M, X0, Y0, Z0, NX, NY, NZ
+    VOXEL_M = vm
+    X0, Y0, Z0 = [int(math.floor(lo / vm)) for lo, _ in GRID_M]
+    NX, NY, NZ = [int(math.ceil(hi / vm)) - int(math.floor(lo / vm)) for lo, hi in GRID_M]
+
+
+use_grid(FINE_M)
 
 
 def vi(m):
@@ -253,11 +266,12 @@ def skin_fn(X, Y, Z):
 def window_fn(X, Y, Z):
     w, t, b = loft(Y)
     ax = np.abs(X)
-    # gunner (front seat): near-triangle -- 45 deg front edge from the nose
-    # sill (4.78, 1.93) to (3.94, 2.81), short top, upright rear at 3.60, a sill
-    # that falls toward the nose
-    gunner = (Y >= 3.60) & (Y <= 4.78 - (Z - 1.93) * 0.955) & (Z <= np.minimum(2.84, t - 0.10)) \
-        & (Z >= 1.93 + (4.78 - Y) * 0.27)
+    # gunner (front seat): near-triangle -- its front point well forward at
+    # (5.15, 1.86) so the pillar ahead of it is narrow (owner, r9), the front
+    # edge up to (3.94, 2.81), short top, upright rear at 3.60, a sill that
+    # falls toward the nose
+    gunner = (Y >= 3.60) & (Y <= 5.15 - (Z - 1.86) * 1.27) & (Z <= np.minimum(2.84, t - 0.10)) \
+        & (Z >= 1.86 + (5.15 - Y) * 0.25)
     # pilot (rear seat): front edge one frame post behind the gunner pane,
     # sill rising toward the rear, top running just under the hull line,
     # upright rear edge at 1.79 (owner, r8)
@@ -373,30 +387,10 @@ def build_body(L):
         L.paint((-2.6, 2.6, -2.1, 0.45, 1.9, 2.75), wing, "hull")
         L.paint(*box(s * (WING_TIP - 0.05) - 0.05, s * (WING_TIP - 0.05) + 0.05, -0.75, -0.55, 2.06, 2.20),
                 "green_light" if s > 0 else "red_light")
-        # rocket pod under the outer wing: tube bundle, faceted dark face
-        L.paint(*box(s * POD_X - 0.05, s * POD_X + 0.05, -1.2, -0.5, POD_Z + 0.25, 2.25), "gunmetal")
-        L.paint(*cyl_y(s * POD_X, POD_Z, 0.33, -1.75, 0.10), "hull_dark")
-        L.paint(*cyl_y(s * POD_X, POD_Z, 0.29, 0.10, 0.17), "gunmetal")
-        for ang in range(0, 360, 51):
-            q = math.radians(ang)
-            L.paint(*cyl_y(s * POD_X + 0.18 * math.cos(q), POD_Z + 0.18 * math.sin(q), 0.06, -0.05, 0.18), "black")
-        L.paint(*cyl_y(s * POD_X, POD_Z, 0.06, -0.05, 0.18), "black")
-        L.paint(*cyl_y(s * POD_X, POD_Z, 0.33, -1.2, -1.17), "seam", only=["hull_dark"])
-
-        # forward weapon pod on each cheek: a faceted box on a short pylon,
-        # four tubes (2 x 2) proud of its nose
-        def pod(X, Y, Z, s=s):
-            ax = np.abs(X - s * FPOD_X)
-            dz = np.abs(Z - FPOD_Z)
-            nose = np.clip(Y - (FPOD_Y1 - 0.35), 0, None) * 0.5
-            return (ax <= 0.27 - nose) & (dz <= 0.25 - nose) & (ax + dz <= 0.40 - nose) & (Y >= FPOD_Y0) & (Y <= FPOD_Y1)
-        L.paint((s * FPOD_X - 0.3, s * FPOD_X + 0.3, FPOD_Y0, FPOD_Y1, FPOD_Z - 0.3, FPOD_Z + 0.3), pod, "hull_dark")
-        L.paint(*box(min(s * 1.0, s * FPOD_X), max(s * 1.0, s * FPOD_X), FPOD_Y0 + 0.3, FPOD_Y1 - 0.5, FPOD_Z - 0.06, FPOD_Z + 0.06), "gunmetal")
-        for dx in (-0.11, 0.11):
-            for dz in (-0.10, 0.10):
-                L.paint(*cyl_y(s * FPOD_X + dx, FPOD_Z + dz, 0.07, FPOD_Y1 - 0.4, FPOD_TUBE_Y), "gunmetal")
-                L.paint(*cyl_y(s * FPOD_X + dx, FPOD_Z + dz, 0.035, FPOD_TUBE_Y - 0.1, FPOD_TUBE_Y + 0.01), "black")
-        L.paint(*box(s * FPOD_X - 0.28, s * FPOD_X + 0.28, FPOD_Y0 + 0.40, FPOD_Y0 + 0.43, FPOD_Z - 0.26, FPOD_Z + 0.26), "seam", only=["hull_dark"])
+        # pylons (the pods themselves are the fine 'pods' part)
+        L.paint(*box(s * POD_X - 0.06, s * POD_X + 0.06, -1.2, -0.5, POD_Z + 0.22, 2.25), "gunmetal")
+        L.paint(*box(min(s * 1.0, s * (FPOD_X - 0.2)), max(s * 1.0, s * (FPOD_X - 0.2)), FPOD_Y0 + 0.3, FPOD_Y1 - 0.5,
+                     FPOD_Z - 0.07, FPOD_Z + 0.07), "gunmetal")
 
         # fuel-cell sponson behind the door, rounded ends; the main wheel under it
         x0, x1, y0, y1, z0, z1 = SPONSON
@@ -408,19 +402,12 @@ def build_body(L):
                 & ((ax - (x1 - rr)).clip(0) ** 2 + yy ** 2 <= rr * rr)
         L.paint((-1.7, 1.7, y0, y1, z0, z1), spon, "hull")
         L.paint(*box(min(s * 1.40, s * 1.60), max(s * 1.40, s * 1.60), -1.85, -1.55, 1.30, 1.40), "seam", only=["hull"])
-    # nose gear: twin wheels on a strut; main gear: trailing arms off the sponsons
+    # gear-leg stubs out of the belly and sponsons (the legs and wheels are
+    # the fine 'gear' part)
+    L.paint(*box(-0.06, 0.06, NOSE_WHEEL[1] - 0.06, NOSE_WHEEL[1] + 0.06, 0.70, 0.90), "gunmetal")
     for s in (1, -1):
-        L.paint(*cyl_x(NOSE_WHEEL[1], NOSE_WHEEL[2], NOSE_WHEEL[2], s * NOSE_WHEEL[0] - 0.07, s * NOSE_WHEEL[0] + 0.07), "rubber")
-        L.paint(*cyl_x(NOSE_WHEEL[1], NOSE_WHEEL[2], 0.09, s * NOSE_WHEEL[0] - 0.08, s * NOSE_WHEEL[0] + 0.08), "steel")
-    L.paint(*box(-0.18, 0.18, NOSE_WHEEL[1] - 0.04, NOSE_WHEEL[1] + 0.04, NOSE_WHEEL[2] - 0.02, NOSE_WHEEL[2] + 0.02), "gunmetal")
-    L.paint(*box(-0.05, 0.05, NOSE_WHEEL[1] - 0.04, NOSE_WHEEL[1] + 0.04, NOSE_WHEEL[2], 0.85), "gunmetal")
-    L.paint(*box(-0.05, 0.05, NOSE_WHEEL[1] - 0.04, NOSE_WHEEL[1] + 0.30, 0.55, 0.62), "gunmetal")
-    for s in (1, -1):
-        wx, wy, wr = s * MAIN_WHEEL[0], MAIN_WHEEL[1], MAIN_WHEEL[2]
-        L.paint(*cyl_x(wy, wr, wr, wx - 0.12, wx + 0.12), "rubber")
-        L.paint(*cyl_x(wy, wr, 0.14, wx - 0.13, wx + 0.13), "steel")
-        L.paint(*box(wx - 0.05, wx + 0.05, wy - 0.05, wy + 0.05, wr, 0.84), "gunmetal")
-        L.paint(*box(wx - 0.05, wx + 0.05, wy - 0.05, wy + 0.45, 0.60, 0.68), "gunmetal")
+        L.paint(*box(s * MAIN_WHEEL[0] - 0.06, s * MAIN_WHEEL[0] + 0.06, MAIN_WHEEL[1] - 0.06, MAIN_WHEEL[1] + 0.06,
+                     0.72, 0.90), "gunmetal")
 
     # panel seams round the airframe: cabin bulkheads and the boom break
     for ys in (3.56, -2.30):
@@ -463,6 +450,54 @@ def build_body(L):
     # nav + anti-collision lights
     L.paint(*box(-0.05, 0.05, -1.4, -1.2, 3.24, 3.32), "red_light", empty_only=True)
     L.paint(*box(-0.05, 0.05, 1.0, 1.2, 0.70, 0.78), "red_light", empty_only=True)
+
+
+def build_pods(L):
+    """the weapon pods (fine part): a rocket pod under each wing tip and a
+    four-tube pod on each cheek; their pylons belong to the body"""
+    for s in (1, -1):
+        # rocket pod under the outer wing: tube bundle, faceted dark face
+        L.paint(*box(s * POD_X - 0.05, s * POD_X + 0.05, -1.2, -0.5, POD_Z + 0.25, POD_Z + 0.40), "gunmetal")
+        L.paint(*cyl_y(s * POD_X, POD_Z, 0.33, -1.75, 0.10), "hull_dark")
+        L.paint(*cyl_y(s * POD_X, POD_Z, 0.29, 0.10, 0.17), "gunmetal")
+        for ang in range(0, 360, 51):
+            q = math.radians(ang)
+            L.paint(*cyl_y(s * POD_X + 0.18 * math.cos(q), POD_Z + 0.18 * math.sin(q), 0.06, -0.05, 0.18), "black")
+        L.paint(*cyl_y(s * POD_X, POD_Z, 0.06, -0.05, 0.18), "black")
+        L.paint(*cyl_y(s * POD_X, POD_Z, 0.33, -1.2, -1.17), "seam", only=["hull_dark"])
+
+        # forward weapon pod on each cheek: a faceted box on a short pylon,
+        # four tubes (2 x 2) proud of its nose
+        def pod(X, Y, Z, s=s):
+            ax = np.abs(X - s * FPOD_X)
+            dz = np.abs(Z - FPOD_Z)
+            nose = np.clip(Y - (FPOD_Y1 - 0.35), 0, None) * 0.5
+            return (ax <= 0.27 - nose) & (dz <= 0.25 - nose) & (ax + dz <= 0.40 - nose) & (Y >= FPOD_Y0) & (Y <= FPOD_Y1)
+        L.paint((s * FPOD_X - 0.3, s * FPOD_X + 0.3, FPOD_Y0, FPOD_Y1, FPOD_Z - 0.3, FPOD_Z + 0.3), pod, "hull_dark")
+        for dx in (-0.11, 0.11):
+            for dz in (-0.10, 0.10):
+                L.paint(*cyl_y(s * FPOD_X + dx, FPOD_Z + dz, 0.07, FPOD_Y1 - 0.4, FPOD_TUBE_Y), "gunmetal")
+                L.paint(*cyl_y(s * FPOD_X + dx, FPOD_Z + dz, 0.035, FPOD_TUBE_Y - 0.1, FPOD_TUBE_Y + 0.01), "black")
+        L.paint(*box(s * FPOD_X - 0.28, s * FPOD_X + 0.28, FPOD_Y0 + 0.40, FPOD_Y0 + 0.43, FPOD_Z - 0.26, FPOD_Z + 0.26), "seam", only=["hull_dark"])
+
+
+
+def build_gear(L):
+    """landing gear (fine part): twin nose wheels on a strut, trailing-arm
+    main wheels under the sponsons; the leg stubs belong to the body"""
+    for s in (1, -1):
+        L.paint(*cyl_x(NOSE_WHEEL[1], NOSE_WHEEL[2], NOSE_WHEEL[2], s * NOSE_WHEEL[0] - 0.07, s * NOSE_WHEEL[0] + 0.07), "rubber")
+        L.paint(*cyl_x(NOSE_WHEEL[1], NOSE_WHEEL[2], 0.09, s * NOSE_WHEEL[0] - 0.08, s * NOSE_WHEEL[0] + 0.08), "steel")
+    L.paint(*box(-0.18, 0.18, NOSE_WHEEL[1] - 0.04, NOSE_WHEEL[1] + 0.04, NOSE_WHEEL[2] - 0.02, NOSE_WHEEL[2] + 0.02), "gunmetal")
+    L.paint(*box(-0.05, 0.05, NOSE_WHEEL[1] - 0.04, NOSE_WHEEL[1] + 0.04, NOSE_WHEEL[2], 0.85), "gunmetal")
+    L.paint(*box(-0.05, 0.05, NOSE_WHEEL[1] - 0.04, NOSE_WHEEL[1] + 0.30, 0.55, 0.62), "gunmetal")
+    for s in (1, -1):
+        wx, wy, wr = s * MAIN_WHEEL[0], MAIN_WHEEL[1], MAIN_WHEEL[2]
+        L.paint(*cyl_x(wy, wr, wr, wx - 0.12, wx + 0.12), "rubber")
+        L.paint(*cyl_x(wy, wr, 0.14, wx - 0.13, wx + 0.13), "steel")
+        L.paint(*box(wx - 0.05, wx + 0.05, wy - 0.05, wy + 0.05, wr, 0.84), "gunmetal")
+        L.paint(*box(wx - 0.05, wx + 0.05, wy - 0.05, wy + 0.45, 0.60, 0.68), "gunmetal")
+
 
 
 def window_fn_skin(X, Y, Z):
@@ -522,8 +557,8 @@ def build_tail(L):
 
 # ------------------------------------------------------------------ livery
 def livery(a):
-    """olive-grey hull broken by angular two-tone camo (dark + tan), lighter
-    on upward faces"""
+    """naval-grey hull broken by angular two-tone camo (darker and lighter
+    greys), lighter on upward faces"""
     hull = a == CI["hull"]
     rng = np.random.default_rng(CAMO_SEED)
     # angular patches: nearest seed point on a rotated lattice (Voronoi cells
@@ -540,7 +575,7 @@ def livery(a):
         m = d < best
         best[m] = d[m]
         lab[m] = kind[i]
-    col = np.where(lab == 1, CI["camo_dark"], np.where(lab == 2, CI["camo_tan"], CI["hull"]))
+    col = np.where(lab == 1, CI["camo_dark"], np.where(lab == 2, CI["camo_light"], CI["hull"]))
     a[idx[:, 0], idx[:, 1], idx[:, 2]] = col
     # top faces a shade lighter
     e = np.zeros(a.shape, bool)
@@ -721,6 +756,19 @@ def write_vox(path, vox):
     return tuple(-v for v in lo)
 
 
+def upsample(vox, k=2):
+    """a coarse part on the fine grid: each voxel becomes k^3 (previews only)"""
+    out = {}
+    for (x, y, z), c in vox.items():
+        for i in range(k):
+            for j in range(k):
+                for m in range(k):
+                    out[(x * k + i, y * k + j, z * k + m)] = c
+    return out
+
+
+# --- coarse: the airframe shell
+use_grid(COARSE_M)
 _body = Layer()
 build_body(_body)
 build_tail(_body)
@@ -736,35 +784,47 @@ for _s, _d in ((-1, _door_l), (1, _door_r)):
     _d.paint((-1.4, 1.4, DOOR_Y0, DOOR_Y1, DOOR_Z0, DOOR_Z1),
              lambda X, Y, Z: (Y <= DOOR_Y0 + 0.10) | (Y >= DOOR_Y1 - 0.10) | (Z <= DOOR_Z0 + 0.10) | (Z >= DOOR_Z1 - 0.10),
              "hull_dark", only=["hull"])
-    # door window and handle
+    # door windows and handle
     def _dwin(X, Y, Z, s=_s):
         w, t, b = loft(Y)
-        return (X * s >= w - 0.04) & ((Y >= -0.70) & (Y <= -0.14) | (Y >= 0.32) & (Y <= 0.88)) & (Z >= 1.86) & (Z <= 2.22)
+        return (X * s >= w - 0.06) & ((Y >= -0.70) & (Y <= -0.14) | (Y >= 0.32) & (Y <= 0.88)) & (Z >= 1.86) & (Z <= 2.22)
     _d.paint((-1.5, 1.5, -0.8, 1.0, 1.8, 2.3), _dwin, "window", only=["hull"])
     # four-panel door: a cross seam
     _d.paint((-1.5, 1.5, DOOR_Y0, DOOR_Y1, DOOR_Z0, DOOR_Z1),
-             lambda X, Y, Z: (np.abs(Y - (DOOR_Y0 + DOOR_Y1) / 2) <= 0.02) | (np.abs(Z - 1.62) <= 0.02),
+             lambda X, Y, Z: (np.abs(Y - (DOOR_Y0 + DOOR_Y1) / 2) <= 0.031) | (np.abs(Z - 1.62) <= 0.031),
              "seam", only=["hull"])
-    _d.paint((-1.4, 1.4, DOOR_Y1 - 0.25, DOOR_Y1 - 0.12, 1.35, 1.42),
-             lambda X, Y, Z, s=_s: X * s >= loft(Y)[0] - 0.04, "steel", only=["hull"])
+    _d.paint((-1.4, 1.4, DOOR_Y1 - 0.25, DOOR_Y1 - 0.12, 1.33, 1.43),
+             lambda X, Y, Z, s=_s: X * s >= loft(Y)[0] - 0.06, "steel", only=["hull"])
 _ramp.paint((-1.1, 1.1, RAMP_Y0, RAMP_Y1, 0.5, 2.4), ramp_fn, "hull_dark")
 _ramp.paint((-1.1, 1.1, RAMP_Y0, RAMP_Y1, 0.5, 2.4),
-            lambda X, Y, Z: (np.abs(X) <= 0.85) & ((np.abs(X) % 0.3) < 0.04), "walkway", only=["hull_dark"])
+            lambda X, Y, Z: (np.abs(X) <= 0.85) & ((np.abs(X) % 0.3) < 0.06), "walkway", only=["hull_dark"])
+_canopy = build_canopy()
 
-_canopy, _gun, _fan, _hub = build_canopy(), build_gun(), build_fan(), build_hub()
+COARSE_PARTS = {"body_fore": prune_crumbs(to_vox([split_y(_body.a, FORE_SPLIT_Y, None)])),
+                "body_aft": prune_crumbs(to_vox([split_y(_body.a, BOOM_SPLIT_Y, FORE_SPLIT_Y)])),
+                "boom": prune_crumbs(to_vox([split_y(_body.a, None, BOOM_SPLIT_Y)])),
+                "canopy": to_vox([_canopy]), "door_l": to_vox([_door_l.a]), "door_r": to_vox([_door_r.a]),
+                "ramp": to_vox([_ramp.a])}
+
+# --- fine: the small parts
+use_grid(FINE_M)
+_pods, _gear = Layer(), Layer()
+build_pods(_pods)
+build_gear(_gear)
 _blade = build_blade_dict()
+FINE_PARTS = {"gun": to_vox([build_gun()]), "tailrotor": to_vox([build_fan()]), "hub": to_vox([build_hub()]),
+              "blade": _blade, "gear": to_vox([_gear.a]), "pods": to_vox([_pods.a])}
 
-_fore = split_y(_body.a, FORE_SPLIT_Y, None)
-_aft = split_y(_body.a, BOOM_SPLIT_Y, FORE_SPLIT_Y)
-_boom = split_y(_body.a, None, BOOM_SPLIT_Y)
+PARTS = dict(COARSE_PARTS)
+PARTS.update(FINE_PARTS)
+PART_VOXEL = {n: COARSE_M for n in COARSE_PARTS}
+PART_VOXEL.update({n: FINE_M for n in FINE_PARTS})
 
-PARTS = {"body_fore": prune_crumbs(to_vox([_fore])), "body_aft": prune_crumbs(to_vox([_aft])), "boom": prune_crumbs(to_vox([_boom])),
-         "canopy": to_vox([_canopy]), "gun": to_vox([_gun]), "tailrotor": to_vox([_fan]),
-         "hub": to_vox([_hub]), "blade": _blade,
-         "door_l": to_vox([_door_l.a]), "door_r": to_vox([_door_r.a]), "ramp": to_vox([_ramp.a])}
-
+# previews on the fine grid (VOXEL_M = FINE_M from here on)
 airframe = {}
-for _n, _v in PARTS.items():
+for _n, _v in COARSE_PARTS.items():
+    airframe.update(upsample(_v))
+for _n, _v in FINE_PARTS.items():
     if _n != "blade":
         airframe.update(_v)
 rotor = {}
@@ -787,13 +847,14 @@ SEATS = [(s * 0.80, y, CABIN_FLOOR + 0.42) for s in (1, -1) for y in (1.30, 0.62
 
 
 def _pt(p):
-    return {"m": [round(v, 3) for v in p], "voxel": [round(v / VOXEL_M, 2) for v in p]}
+    return {"m": [round(v, 3) for v in p]}
 
 
 LANDMARKS = {
     "frame": "x lateral (+x right/starboard), y forward (+y nose), z up, wheels z=0. "
-             "metres; frame voxel = m / voxel_m; part file voxel = frame voxel + part offset",
-    "voxel_m": VOXEL_M,
+             "Points in metres. Each part has its own voxel_m: part frame voxel = floor(m / voxel_m), "
+             "part file voxel = frame voxel + the part's file_offset",
+    "part_voxel_m": PART_VOXEL,
     "nose_tip": _pt((0, FUS_Y[-1], (FUS_T[-1] + FUS_B[-1]) / 2)),
     "sensor": _pt(SENSOR),
     "rotor": dict(_pt(ROTOR_HUB), axis="z", radius_m=ROTOR_R, blades=ROTOR_BLADES,
@@ -817,10 +878,16 @@ if __name__ == "__main__":
     for name, vox in PARTS.items():
         comps = components(vox)
         print(f"{name}: {sum(comps)} vox, components {len(comps)} {comps[:4]}")
-    occ = set(airframe)
-    surf = sum(1 for (x, y, z) in airframe if any(q not in occ for q in (
-        (x+1,y,z),(x-1,y,z),(x,y+1,z),(x,y-1,z),(x,y,z+1),(x,y,z-1))))
-    print(f"voxel {VOXEL_M} m: airframe {len(airframe)} solid, {surf} surface (what the game keeps)")
+    tot_solid = tot_surf = 0
+    for name, vox in PARTS.items():
+        if name == "blade":
+            continue
+        occ = set(vox)
+        tot_solid += len(vox)
+        tot_surf += sum(1 for (x, y, z) in vox if any(q not in occ for q in (
+            (x+1,y,z),(x-1,y,z),(x,y+1,z),(x,y-1,z),(x,y,z+1),(x,y,z-1))))
+    print(f"mixed {COARSE_M}/{FINE_M} m: parts {tot_solid} solid, {tot_surf} surface (what the game keeps), "
+          f"+ blade {len(PARTS['blade'])} x {ROTOR_BLADES}")
     vs = list(airframe)
     for i, ax in enumerate("xyz"):
         lo, hi = min(v[i] for v in vs), max(v[i] for v in vs)
@@ -831,7 +898,7 @@ if __name__ == "__main__":
         LANDMARKS["parts"] = {}
         for name, vox in PARTS.items():
             off = write_vox(os.path.join(pdir, f"ingame-chopper-raven9-v1-{name}.vox"), vox)
-            LANDMARKS["parts"][name] = {"file_offset": list(off)}
+            LANDMARKS["parts"][name] = {"voxel_m": PART_VOXEL[name], "file_offset": list(off)}
         with open(os.path.join(pdir, "ingame_chopper_raven9_v1_landmarks.json"), "w") as f:
             json.dump(LANDMARKS, f, indent=2)
     print(json.dumps({k: LANDMARKS[k] for k in ("nose_tip", "rotor", "tailrotor", "gun", "door_hinges", "ramp_hinge")}, indent=1))
