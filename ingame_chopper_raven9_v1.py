@@ -60,7 +60,7 @@ PALETTE = [
     ("hull",         (118, 125, 133)),   # naval grey base (owner, r9)
     ("hull_light",   (140, 147, 155)),
     ("hull_dark",    (84, 90, 98)),
-    ("camo_dark",    (88, 95, 104)),
+    ("camo_dark",    (70, 76, 84)),     # ~3:1 against camo_light (rater r12)
     ("camo_light",   (152, 157, 162)),
     ("seam",         (44, 48, 54)),
     ("canopy_glass", (c8(0.55), c8(0.80), c8(0.95))),   # == game CHOPPER_GLASS
@@ -355,14 +355,12 @@ def build_body(L):
         return (Y >= SPINE_Y[0]) & (Y <= SPINE_Y[-1]) & (Z >= 3.0) & (Z <= h) \
             & (ax <= 0.66 - (Z - 3.0) * 0.20) & (ax + (Z - (h - 0.24)) <= 0.66 - (Z - 3.0) * 0.20)
     L.paint((-0.7, 0.7, SPINE_Y[0], SPINE_Y[-1], 3.0, 4.45), spine, "hull")
-    L.paint(*box(-0.50, 0.50, -1.86, -1.80, 3.3, 4.38), "seam", only=["hull"])
-    L.paint(*box(-0.42, 0.42, -0.90, -0.86, 4.0, 4.42), "seam", only=["hull"])
     L.paint(*cyl_z(0.0, 0.0, 0.17, 4.30, ROTOR_Z - 0.16), "gunmetal")
     L.paint(*cyl_z(0.0, 0.0, 0.26, 4.30, 4.42), "hull_dark")          # mast base collar
     # engine-deck grille aft of the spine, between the nacelles
     def grille(X, Y, Z):
         t = loft(Y)[1]
-        return (np.abs(X) <= 0.34) & (Y >= -3.25) & (Y <= -2.12) & (Z >= t - 0.06) & ((np.floor((Y + 3.25) / 0.09) % 2) == 0)
+        return (np.abs(X) <= 0.34) & (Y >= -2.88) & (Y <= -2.12) & (Z >= t - 0.06) & ((np.floor((Y + 2.88) / 0.12) % 2) == 0)
     L.paint((-0.4, 0.4, -3.3, -2.1, 3.1, 3.5), grille, "intake", only=["hull"])
 
     # shoulder engine nacelles beside the spine: raked intakes forward, the
@@ -500,11 +498,13 @@ def build_pods(L):
         # rocket pod under the outer wing: tube bundle, faceted dark face
         L.paint(*box(s * POD_X - 0.05, s * POD_X + 0.05, -1.2, -0.5, POD_Z + 0.25, POD_Z + 0.40), "gunmetal")
         L.paint(*cyl_y(s * POD_X, POD_Z, 0.33, -1.75, 0.10), "hull_dark")
-        L.paint(*cyl_y(s * POD_X, POD_Z, 0.29, 0.10, 0.17), "gunmetal")
-        for ang in range(0, 360, 51):
-            q = math.radians(ang)
-            L.paint(*cyl_y(s * POD_X + 0.18 * math.cos(q), POD_Z + 0.18 * math.sin(q), 0.06, -0.05, 0.18), "black")
-        L.paint(*cyl_y(s * POD_X, POD_Z, 0.06, -0.05, 0.18), "black")
+        L.paint(*cyl_y(s * POD_X, POD_Z, 0.29, 0.10, 0.17), "black")                     # muzzle face
+        for q in [math.radians(a) for a in range(0, 360, 51)] + [None]:
+            tx = s * POD_X + (0.18 * math.cos(q) if q is not None else 0.0)
+            tz = POD_Z + (0.18 * math.sin(q) if q is not None else 0.0)
+            L.paint(*cyl_y(tx, tz, 0.075, 0.13, 0.18, r_in=0.055), "gunmetal")             # tube rim
+            L.paint(*cyl_y(tx, tz, 0.055, -0.05, 0.18), "intake")                          # tube bore
+        L.paint(*cyl_y(s * POD_X, POD_Z, 0.335, -0.86, -0.80), "camo_light")            # mid band
         L.paint(*cyl_y(s * POD_X, POD_Z, 0.33, -1.2, -1.17), "seam", only=["hull_dark"])
 
         # forward weapon pod on each cheek: a faceted box on a short pylon,
@@ -566,7 +566,7 @@ def build_tail(L):
     hy, hz = TAIL_HUB[1], TAIL_HUB[2]
     # octagonal housing round the duct, faired into the boom
     L.paint((-0.40, 0.40, hy - 1.2, hy + 1.2, hz - 1.2, hz + 1.2), shroud_fn, "hull")
-    L.paint(*cyl_x(hy, hz, FAN_R_IN + 0.06, -0.37, 0.37, r_in=FAN_R_IN), "hull_dark")
+    L.paint(*cyl_x(hy, hz, FAN_R_IN + 0.12, -0.37, 0.37, r_in=FAN_R_IN), "seam")    # duct lining, dark
     L.paint(*box(-0.04, 0.04, hy - FAN_R_IN, hy + FAN_R_IN, hz - 0.03, hz + 0.03), "gunmetal")
     L.paint(*cyl_x(hy, hz, 0.16, -0.12, 0.12), "gunmetal")
     # vertical stabiliser above the housing: big, nearly upright, flat top
@@ -604,7 +604,7 @@ def livery(a):
     rng = np.random.default_rng(CAMO_SEED)
     # angular patches: nearest seed point on a rotated lattice (Voronoi cells
     # read as hard-edged facets), each cell dark, tan or base
-    n = 260
+    n = 120                                  # fewer, larger cells: 0.6-1.2 m patches (rater r12)
     pts = np.stack([rng.uniform(-3.2, 3.2, n), rng.uniform(-8.8, 6.8, n), rng.uniform(0, 5.4, n)], 1)
     kind = rng.choice([0, 1, 2], (n, 3), p=[0.42, 0.33, 0.25])   # per cell, per nose face
     idx = np.argwhere(hull)
@@ -624,6 +624,8 @@ def livery(a):
         cell[m] = i
     lab = kind[cell, face]
     col = np.where(lab == 1, CI["camo_dark"], np.where(lab == 2, CI["camo_light"], CI["hull"]))
+    on_spine = (np.abs(P[:, 0]) < 0.62) & (P[:, 2] > 3.25) & (P[:, 1] > SPINE_Y[0]) & (P[:, 1] < SPINE_Y[-1])
+    col = np.where(on_spine & (col == CI["camo_dark"]), CI["hull"], col)
     a[idx[:, 0], idx[:, 1], idx[:, 2]] = col
     # top faces a shade lighter
     e = np.zeros(a.shape, bool)
