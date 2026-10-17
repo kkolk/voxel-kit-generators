@@ -61,7 +61,7 @@ PALETTE = [
     ("hull_light",   (140, 147, 155)),
     ("hull_dark",    (84, 90, 98)),
     ("camo_dark",    (70, 76, 84)),     # ~3:1 against camo_light (rater r12)
-    ("camo_light",   (152, 157, 162)),
+    ("camo_light",   (137, 141, 146)),   # lightest camo tone, still a mid-light grey (rater r13)
     ("seam",         (44, 48, 54)),
     ("canopy_glass", (c8(0.55), c8(0.80), c8(0.95))),   # == game CHOPPER_GLASS
     ("frame",        (66, 71, 78)),
@@ -360,8 +360,8 @@ def build_body(L):
     # engine-deck grille aft of the spine, between the nacelles
     def grille(X, Y, Z):
         t = loft(Y)[1]
-        return (np.abs(X) <= 0.34) & (Y >= -2.88) & (Y <= -2.12) & (Z >= t - 0.06) & ((np.floor((Y + 2.88) / 0.12) % 2) == 0)
-    L.paint((-0.4, 0.4, -3.3, -2.1, 3.1, 3.5), grille, "intake", only=["hull"])
+        return (np.abs(X) <= 0.34) & (Y >= -2.80) & (Y <= -2.20) & (Z >= t - 0.06) & ((np.floor((Y + 2.80) / 0.20) % 2) == 0)
+    L.paint((-0.4, 0.4, -3.3, -2.1, 3.1, 3.5), grille, "hull_dark", only=["hull"])      # two dark-grey slots
 
     # shoulder engine nacelles beside the spine: raked intakes forward, the
     # main exhaust high at the rear and a smaller vent below it
@@ -624,6 +624,9 @@ def livery(a):
         cell[m] = i
     lab = kind[cell, face]
     col = np.where(lab == 1, CI["camo_dark"], np.where(lab == 2, CI["camo_light"], CI["hull"]))
+    # one mid-grey patch (~0.8 m diamond) breaks the pale lower cheek each side
+    cheek = np.abs(P[:, 1] - 2.9) * 0.8 + np.abs(P[:, 2] - 1.25) <= 0.40
+    col = np.where(cheek & (col == CI["camo_light"]), CI["hull"], col)
     on_spine = (np.abs(P[:, 0]) < 0.62) & (P[:, 2] > 3.25) & (P[:, 1] > SPINE_Y[0]) & (P[:, 1] < SPINE_Y[-1])
     col = np.where(on_spine & (col == CI["camo_dark"]), CI["hull"], col)
     a[idx[:, 0], idx[:, 1], idx[:, 2]] = col
