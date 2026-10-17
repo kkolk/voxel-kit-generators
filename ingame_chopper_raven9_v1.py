@@ -248,7 +248,9 @@ NOSE_BLEND_Y = (1.2, 2.0)                # cabin section -> nose section
 GLASS_BAND = 0.30                        # solid hull between roof glass and side panes (rater r10)
 PANE_POST = 0.15                         # frame post between the side panes
 HOOD_HALF = 0.46                         # half-width of the cockpit hood's flat top
-CHINE_STEP = 0.12                        # nose: the chin plane starts this far in from the cheek (rater r18)
+# chine: the chin plane starts this far in from the cheek, (y, step): 0.18 m
+# over the forward 2 m, fading out just ahead of the side door (rater r18/r19)
+CHINE_STEP = ([1.12, 1.40, 3.80, 5.80], [0.0, 0.12, 0.18, 0.18])
 
 # Grid-friendly slopes (r18): a voxel staircase reads as a clean facet only
 # when its slope is a small ratio (1:1, 1:2, 1:3, 2:3 ...), which repeats in
@@ -317,10 +319,11 @@ def fus_fn(X, Y, Z, grow=0.0):
     # chin plane slope snapped to a grid ratio per station (clean steps; the
     # keel width moves by under a voxel)
     lo = np.clip(zl - Z, 0, None) * snap_ratio((w - wb) / np.maximum(zl - b, 0.05))
-    # chine: a hard width step (geometry, not paint) where the near-vertical
-    # cheek meets the chin plane, so the nose reads as a faceted wedge
-    lo = lo + np.where(Z < zl, CHINE_STEP, 0.0)
     hw = hw_c * (1 - f) + (w - up - lo) * f
+    # chine: a hard width step (geometry, not paint) where the near-vertical
+    # cheek meets the chin plane; applied after the blend so it runs back
+    # past the nose section to the door
+    hw = hw - np.where(Z < zl, np.interp(Y, *CHINE_STEP), 0.0)
     inside = (ax <= hw + grow) & (Z <= t + grow) & (Z >= b - grow)
     inside &= ax + (Z - (t - ct)) <= hw + grow * 1.414 + 1e-6
     inside &= ax + ((b + cb) - Z) <= w + grow * 1.414 + 1e-6
@@ -440,7 +443,7 @@ def build_body(L):
             front = 0.55 - (NAC_Z + 0.5 - Z) * 0.30
             return ((np.abs(X - xc) / 0.30) ** 4 + (np.abs(Z - NAC_Z + 0.04) / 0.30) ** 4 <= 1.0) & (Y >= front - 0.14) & (Y <= front + 0.01)
         L.paint((xc - 0.4, xc + 0.4, 0.2, 0.8, 2.9, 3.9), intake, "intake")
-        # exhaust nozzle: tapers aft and kicks up 15 deg, dark notch in its end
+        # exhaust nozzle: tapers aft and kicks up 15 deg, a deep dark bore in its end
         def nozzle(X, Y, Z, xc=xc, rr=0.0):
             u = np.clip((-2.95 - Y) / 0.38, 0, 1)
             zc = NAC_Z + 0.06 + (-2.95 - Y).clip(0) * 0.27
@@ -448,8 +451,8 @@ def build_body(L):
             # ends on the cabin/boom split, so the nozzle stays in body_aft
             return ((X - xc) ** 2 + (Z - zc) ** 2 <= r * r) & (Y <= -2.90) & (Y >= BOOM_SPLIT_Y + 0.01)
         L.paint((xc - 0.35, xc + 0.35, -3.4, -2.85, 3.1, 3.9), nozzle, "gunmetal")
-        L.paint((xc - 0.35, xc + 0.35, -3.4, -3.20, 3.1, 3.9),
-                lambda X, Y, Z, xc=xc: nozzle(X, Y, Z, xc, 0.08) & (Y <= -3.22), "black")
+        L.paint((xc - 0.35, xc + 0.35, -3.4, -3.05, 3.1, 3.9),
+                lambda X, Y, Z, xc=xc: nozzle(X, Y, Z, xc, 0.05) & (Y <= -3.08), "black")   # rater r19
         def vent(X, Y, Z, s=s, xc=xc):
             return (X * s >= NAC_X + NAC_RX - 0.10) & ((Y + 2.30) ** 2 / 0.32 ** 2 + (Z - (NAC_Z - 0.16)) ** 2 / 0.12 ** 2 <= 1.0)
         L.paint((-1.5, 1.5, -2.7, -1.9, 3.0, 3.4), vent, "intake", only=["hull"])
@@ -717,6 +720,10 @@ def livery(a):
         for dz in (-0.15, 0, 0.15):
             glass_sur |= window_fn(P[:, 0], P[:, 1] + dy, P[:, 2] + dz)
     col = np.where(door_sur | glass_sur, CI["hull"], col)
+    # and no dark patch within 0.3 m of the door surround (rater r19)
+    near_door = (np.abs(P[:, 0]) > 0.9) & (P[:, 1] >= DOOR_Y0 - 0.54) & (P[:, 1] <= DOOR_Y1 + 0.54) \
+        & (P[:, 2] >= DOOR_Z0 - 0.54) & (P[:, 2] <= DOOR_Z1 + 0.54)
+    col = np.where(near_door & (col == CI["camo_dark"]), CI["hull"], col)
     on_spine = (np.abs(P[:, 0]) < 0.62) & (P[:, 2] > 3.25) & (P[:, 1] > SPINE_Y[0]) & (P[:, 1] < SPINE_Y[-1])
     col = np.where(on_spine & (col == CI["camo_dark"]), CI["hull"], col)
     # dark slanted patch on each chin plane under the cheek bay
