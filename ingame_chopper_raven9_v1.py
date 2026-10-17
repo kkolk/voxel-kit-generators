@@ -172,7 +172,7 @@ FAN_R_IN = 0.86                    # duct radius (fan blades inside it)
 SHROUD_R = 1.12                    # octagonal housing round the duct
 GUN_PIVOT = (0.0, 5.02, 0.70)
 GUN_MUZZLE = (0.0, 6.62, 0.66)
-SENSOR = (0.0, 5.96, 1.16)         # lens on the chin sensor housing
+SENSOR = (0.0, 5.96, 1.42)         # lens on the nose-face sensor housing
 WING_Z, WING_TIP = 2.62, 2.45     # stub wing height at the root, tip half-span
 POD_X, POD_Z = 2.25, 1.74          # rocket pods under the wing tips
 FPOD_X, FPOD_Z = 1.42, 1.24        # forward weapon pods on the cheeks (4 tubes each)
@@ -192,7 +192,7 @@ CAMO_SEED = 9
 FUS_Y = [-6.30, -4.50, -3.40, -3.30, -2.65, -2.30, -1.00, 0.50, 1.25, 2.40, 3.50, 4.75, 5.45, 5.95]
 FUS_W = [0.38, 0.42, 0.48, 0.95, 1.18, 1.26, 1.30, 1.30, 1.28, 1.22, 1.12, 0.94, 0.72, 0.52]
 FUS_T = [3.44, 3.30, 3.30, 3.36, 3.36, 3.30, 3.24, 3.62, 3.86, 3.52, 3.03, 2.46, 2.06, 1.74]
-FUS_B = [2.30, 2.18, 2.10, 1.40, 1.10, 0.86, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78, 0.84, 1.00]
+FUS_B = [2.30, 2.18, 2.10, 1.40, 1.10, 0.86, 0.78, 0.78, 0.78, 0.78, 0.78, 0.80, 0.96, 1.16]
 CHAMFER_TOP = 0.45   # 45-degree facets along the roof edges
 CHAMFER_BOT = 0.32
 LEAN = 0.16          # upper sides lean in (tumblehome) per metre above the waist
@@ -200,7 +200,7 @@ LEAN = 0.16          # upper sides lean in (tumblehome) per metre above the wais
 # cheeks, so the glazing sits on a narrow ~1.4 m hood (front schematic)
 NOSE_LEAN, NOSE_LEAN_FROM = 0.52, 0.60   # per metre, above belly + this
 NOSE_BLEND_Y = (1.2, 2.0)                # cabin section -> nose section
-PANE_POST = 0.09                         # frame post between the side panes
+PANE_POST = 0.12                         # frame post between the side panes
 HOOD_HALF = 0.46                         # half-width of the cockpit hood's flat top
 
 
@@ -216,7 +216,8 @@ def fus_fn(X, Y, Z, grow=0.0):
     w, t, b = loft(Y)
     f = np.clip((Y - NOSE_BLEND_Y[0]) / (NOSE_BLEND_Y[1] - NOSE_BLEND_Y[0]), 0, 1)
     ct = np.minimum(CHAMFER_TOP * (1 - 0.75 * f), (t - b) * 0.40)
-    cb = np.minimum(CHAMFER_BOT, (t - b) * 0.30)
+    # the lower facet widens toward the nose into one chin plane (port profile)
+    cb = np.minimum(CHAMFER_BOT + np.interp(Y, [3.4, 5.95], [0.0, 0.42]), (t - b) * 0.48)
     ax = np.abs(X)
     waist = (t + b) / 2 * (1 - f) + (b + NOSE_LEAN_FROM) * f
     lean = np.clip(Z - waist, 0, None) * (LEAN * (1 - f) + NOSE_LEAN * f)
@@ -240,13 +241,16 @@ def skin_fn(X, Y, Z):
 def window_fn(X, Y, Z):
     w, t, b = loft(Y)
     ax = np.abs(X)
-    g_front = 4.82 - (Z - 1.94) * 0.68
-    gunner = (Y >= 3.62 + (Z - 1.94) * 0.10) & (Y <= g_front) & (Z >= 1.94) & (Z <= t - 0.16)
-    # pilot (rear seat): a plain polygon -- level sill, upright rear edge, top
-    # on the hull line, front edge one frame post behind the gunner pane's
-    # rear edge so the two panes meet (owner, r7)
-    g_rear = 3.62 + (Z - 1.94) * 0.10
-    pilot = (Y >= 1.80) & (Y <= g_rear - PANE_POST) & (Z >= 2.59) & (Z <= t - 0.16)
+    # gunner (front seat): near-triangle -- 45 deg front edge from the nose
+    # sill (4.78, 1.93) to (3.94, 2.81), short top, upright rear at 3.60, a sill
+    # that falls toward the nose
+    gunner = (Y >= 3.60) & (Y <= 4.78 - (Z - 1.93) * 0.955) & (Z <= np.minimum(2.84, t - 0.10)) \
+        & (Z >= 1.93 + (4.78 - Y) * 0.27)
+    # pilot (rear seat): front edge one frame post behind the gunner pane,
+    # sill rising toward the rear, top running just under the hull line,
+    # upright rear edge at 1.79 (owner, r8)
+    pilot = (Y >= 1.79) & (Y <= 3.60 - PANE_POST) & (Z >= 2.50 + (3.51 - Y) * 0.30) \
+        & (Z <= np.minimum(2.97 + (3.51 - Y) * 0.22, t - 0.12))
     # roof strip over both seats (owner's r4 pick): rectangular panes split
     # by straight frame bars; it stops 0.06 m short of the hood edges so the
     # bars always meet the side frames
@@ -281,12 +285,21 @@ def build_body(L):
 
     # nose: forward sensor turret proud of the blunt face, a dark crease
     # along the chin facet
-    L.paint(*box(-0.30, 0.30, 5.62, 6.02, SENSOR[2] - 0.17, SENSOR[2] + 0.15), "gunmetal")
+    L.paint(*box(-0.26, 0.26, 5.62, 6.02, SENSOR[2] - 0.16, SENSOR[2] + 0.15), "gunmetal")
     L.paint(*box(-0.24, 0.24, 6.02, 6.05, SENSOR[2] - 0.12, SENSOR[2] + 0.10), "black")
     L.paint(*box(0.04, 0.18, 6.04, 6.07, SENSOR[2] - 0.08, SENSOR[2] + 0.06), "lens")
     L.paint(*box(-0.04, 0.00, 6.04, 6.07, SENSOR[2] - 0.10, SENSOR[2] - 0.07), "green_light")
-    L.paint((-1.0, 1.0, 4.6, 6.0, 0.7, 1.4), lambda X, Y, Z: np.abs(np.abs(X) + (1.10 - Z) - (loft(Y)[0] - 0.05)) <= 0.03,
-            "seam", only=["hull"])
+    # facet lines of the port profile on both nose sides: sill line from the
+    # gunner pane down to the nose tip, and the lower cheek crease back to the
+    # weapon pod
+    for pts in (((5.92, 1.52), (4.78, 1.90), (3.60, 2.22), (1.80, 2.48)),
+                ((5.92, 1.24), (4.40, 1.36), (3.30, 1.52))):
+        for (y0, z0), (y1, z1) in zip(pts, pts[1:]):
+            def line(X, Y, Z, y0=y0, z0=z0, y1=y1, z1=z1):
+                u = np.clip((Y - y0) / (y1 - y0), 0, 1)
+                return (np.abs(Z - (z0 + (z1 - z0) * u)) <= 0.022) & (Y <= max(y0, y1)) & (Y >= min(y0, y1)) & skin_fn(X, Y, Z)
+            L.paint((-1.4, 1.4, min(y0, y1), max(y0, y1), min(z0, z1) - 0.05, max(z0, z1) + 0.05), line, "seam",
+                    only=["hull", "hull_light"])
 
     # cockpits: hollow behind the glazing, dark floors, helmeted crew
     for y0, y1, fz in COCKPITS:
