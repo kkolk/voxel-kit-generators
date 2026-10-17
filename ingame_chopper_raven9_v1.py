@@ -200,6 +200,7 @@ LEAN = 0.16          # upper sides lean in (tumblehome) per metre above the wais
 # cheeks, so the glazing sits on a narrow ~1.4 m hood (front schematic)
 NOSE_LEAN, NOSE_LEAN_FROM = 0.52, 0.60   # per metre, above belly + this
 NOSE_BLEND_Y = (1.2, 2.0)                # cabin section -> nose section
+PANE_POST = 0.09                         # frame post between the side panes
 HOOD_HALF = 0.46                         # half-width of the cockpit hood's flat top
 
 
@@ -241,8 +242,11 @@ def window_fn(X, Y, Z):
     ax = np.abs(X)
     g_front = 4.82 - (Z - 1.94) * 0.68
     gunner = (Y >= 3.62 + (Z - 1.94) * 0.10) & (Y <= g_front) & (Z >= 1.94) & (Z <= t - 0.16)
-    p_front = 3.37 - (Z - 2.59) * 0.77
-    pilot = (Y >= 1.76 + (Z - 2.59) * 0.08) & (Y <= p_front) & (Z >= 2.59) & (Z <= t - 0.16)
+    # pilot (rear seat): a plain polygon -- level sill, upright rear edge, top
+    # on the hull line, front edge one frame post behind the gunner pane's
+    # rear edge so the two panes meet (owner, r7)
+    g_rear = 3.62 + (Z - 1.94) * 0.10
+    pilot = (Y >= 1.80) & (Y <= g_rear - PANE_POST) & (Z >= 2.59) & (Z <= t - 0.16)
     # roof strip over both seats (owner's r4 pick): rectangular panes split
     # by straight frame bars; it stops 0.06 m short of the hood edges so the
     # bars always meet the side frames
