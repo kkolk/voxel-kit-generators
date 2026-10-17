@@ -191,9 +191,9 @@ GUN_MUZZLE = (0.0, 6.62, 0.66)
 SENSOR = (0.0, 6.02, 1.42)         # lens on the sensor block proud of the nose face
 WING_Z, WING_TIP = 2.62, 2.45     # stub wing height at the root, tip half-span
 POD_X, POD_Z = 2.25, 1.74          # rocket pods under the wing tips
-BAY = (1.95, 3.25, 1.04, 1.46)     # cheek bay recess: y0, y1, z0, z1 (rear edge slants forward-down)
+BAY = (1.75, 3.75, 0.98, 1.56)     # cheek bay recess: y0, y1, z0, z1 (rear edge slants forward-down)
 FPOD_X, FPOD_Z = 1.42, 1.24        # forward weapon pods on the cheeks (4 tubes each)
-FPOD_Y0, FPOD_Y1, FPOD_TUBE_Y = 1.90, 3.30, 3.88
+FPOD_Y0, FPOD_Y1, FPOD_TUBE_Y = 1.80, 3.35, 3.95
 MAIN_WHEEL = (1.46, -1.75, 0.32)   # x, y, radius (centre z = radius)
 NOSE_WHEEL = (0.24, 3.30, 0.22)
 DOOR_Y0, DOOR_Y1, DOOR_Z0, DOOR_Z1 = -0.88, 1.06, 0.88, 2.36
@@ -221,7 +221,7 @@ NOSE_KEEL = ([1.6, 3.4, 5.0, 5.8], [1.10, 0.62, 0.36, 0.30])     # (y, half-widt
 NOSE_CHEEK = ([1.6, 3.6, 5.0, 5.8], [0.35, 0.35, 0.20, 0.0])     # (y, height) of the flat cheek band
 NOSE_BLEND_Y = (1.2, 2.0)                # cabin section -> nose section
 GLASS_BAND = 0.30                        # solid hull between roof glass and side panes (rater r10)
-PANE_POST = 0.12                         # frame post between the side panes
+PANE_POST = 0.15                         # frame post between the side panes
 HOOD_HALF = 0.46                         # half-width of the cockpit hood's flat top
 
 
@@ -287,13 +287,14 @@ def window_fn(X, Y, Z):
     # by straight frame bars; it stops 0.06 m short of the hood edges so the
     # bars always meet the side frames
     roof = (Y >= 1.95) & (Y <= 5.30) & (ax <= 0.40) & (Z >= t - 0.12)
-    posts = (np.abs(Y - 2.62) <= 0.045) | (np.abs(Y - 3.48) <= 0.05) | (np.abs(Y - 4.30) <= 0.045)
+    posts = (np.abs(Y - 2.62) <= 0.075) | (np.abs(Y - 3.48) <= 0.075) | (np.abs(Y - 4.30) <= 0.075)
     return (gunner | pilot | roof) & ~(roof & posts)
 
 
 COCKPITS = ((3.55, 4.76, 1.36), (1.84, 3.45, 1.86))
-NAC_X, NAC_Z = 0.80, 3.40          # shoulder engine nacelle centreline
-NAC_RX, NAC_RZ = 0.40, 0.48        # its half-width and half-height (front view)
+NAC_X, NAC_Z = 0.80, 3.48          # shoulder engine nacelle centreline (raised clear of the roof, r12)
+NAC_RX, NAC_RZ = 0.40, 0.44        # its half-width and half-height (front view)
+NAC_GAP = 0.07                     # shadow channel between pod and spine
 SPINE_Y = [-2.05, -1.85, 0.20, 1.40]   # raised mast housing between the nacelles
 SPINE_Z = [3.30, 4.40, 4.40, 3.80]   # (y0, y1, floor z): gunner, pilot
 
@@ -317,8 +318,9 @@ def build_body(L):
 
     # nose: forward sensor turret proud of the blunt face, a dark crease
     # along the chin facet
-    L.paint(*box(-0.26, 0.26, 5.46, 6.04, SENSOR[2] - 0.23, SENSOR[2] + 0.22), "gunmetal")
-    L.paint(*box(-0.20, 0.20, 6.04, 6.10, SENSOR[2] - 0.16, SENSOR[2] + 0.16), "black")      # lens plate
+    L.paint(*box(-0.36, 0.36, 5.46, 5.96, SENSOR[2] - 0.23, SENSOR[2] + 0.22), "camo_light")   # bevel frame
+    L.paint(*box(-0.30, 0.30, 5.96, 6.04, SENSOR[2] - 0.17, SENSOR[2] + 0.16), "gunmetal")
+    L.paint(*box(-0.26, 0.26, 6.04, 6.10, SENSOR[2] - 0.13, SENSOR[2] + 0.12), "black")      # lens plate
     L.paint(*box(0.02, 0.16, 6.08, 6.14, SENSOR[2] - 0.08, SENSOR[2] + 0.08), "lens")
     L.paint(*box(-0.14, -0.04, 6.08, 6.14, SENSOR[2] - 0.12, SENSOR[2] - 0.04), "green_light")
     # 5b. cheek missile bay: a recess one hull skin deep ahead of the wing, a
@@ -328,6 +330,10 @@ def build_body(L):
     bbb = (-1.4, 1.4, BAY[0], BAY[1], BAY[2], BAY[3])
     L.carve(bbb, lambda X, Y, Z: bay(X, Y, Z) & fus_fn(X, Y, Z) & ~fus_fn(X, Y, Z, grow=-0.12))
     L.paint(bbb, lambda X, Y, Z: bay(X, Y, Z) & fus_fn(X, Y, Z, grow=-0.12) & ~fus_fn(X, Y, Z, grow=-0.18), "cockpit")
+    # the bay's hinged cover, swung up into the recess's top: a lighter
+    # slanted lip along its upper edge
+    L.paint(bbb, lambda X, Y, Z: bay(X, Y, Z) & (Z >= BAY[3] - 0.12 - (BAY[1] - Y) * 0.04)
+            & fus_fn(X, Y, Z, grow=-0.06) & ~fus_fn(X, Y, Z, grow=-0.18), "camo_light")
     # cockpits: hollow behind the glazing, dark floors, helmeted crew
     for y0, y1, fz in COCKPITS:
         L.carve((-1.3, 1.3, y0, y1, fz, 4.0), lambda X, Y, Z, fz=fz: fus_fn(X, Y, Z, grow=-0.075) & (Z >= fz))
@@ -366,7 +372,7 @@ def build_body(L):
         L.paint((xc - 0.6, xc + 0.6, -3.3, 0.8, 2.8, 4.0), lambda X, Y, Z, s=s: nacelle_fn(X, Y, Z, s), "hull")
         def intake(X, Y, Z, s=s, xc=xc):
             front = 0.55 - (NAC_Z + 0.5 - Z) * 0.30
-            return ((X - xc) ** 2 / 0.30 ** 2 + (Z - NAC_Z + 0.06) ** 2 / 0.32 ** 2 <= 1.0) & (Y >= front - 0.10) & (Y <= front + 0.01)
+            return ((np.abs(X - xc) / 0.30) ** 4 + (np.abs(Z - NAC_Z + 0.04) / 0.30) ** 4 <= 1.0) & (Y >= front - 0.14) & (Y <= front + 0.01)
         L.paint((xc - 0.4, xc + 0.4, 0.2, 0.8, 2.9, 3.9), intake, "intake")
         # exhaust nozzle: tapers aft and kicks up 15 deg, dark notch in its end
         def nozzle(X, Y, Z, xc=xc, rr=0.0):
@@ -383,23 +389,31 @@ def build_body(L):
         L.paint((-1.5, 1.5, -2.7, -1.9, 3.0, 3.4), vent, "intake", only=["hull"])
         # flank openings, as the concept draws them: the intake scoop forward,
         # the exhaust aft, both dark ovals on the nacelle's outer face
-        # intake: a real oval recess in the nacelle's forward-outboard flank,
-        # one voxel deep with a dark inner face; the exhaust's flank opening
-        # stays a dark oval
+        # intake: a big rounded-rectangle recess (0.9 x 0.6 m) in the pod's
+        # forward-outboard flank, two voxels deep with a dark cavity and a
+        # lighter rim (concept 10)
         def oval(Y, Z, yc, zc, ry, rz):
-            return (Y - yc) ** 2 / ry ** 2 + (Z - zc) ** 2 / rz ** 2
-        bbi = (xc - 0.6, xc + 0.6, -0.3, 0.7, 3.0, 3.9)
-        L.carve(bbi, lambda X, Y, Z, s=s: (X * s > NAC_X) & (oval(Y, Z, 0.18, NAC_Z + 0.04, 0.34, 0.30) <= 1.0)
-                & nacelle_fn(X, Y, Z, s) & ~nacelle_fn(X, Y, Z, s, grow=-0.07))
-        L.paint(bbi, lambda X, Y, Z, s=s: (X * s > NAC_X) & (oval(Y, Z, 0.18, NAC_Z + 0.04, 0.34, 0.30) <= 1.0)
-                & nacelle_fn(X, Y, Z, s, grow=-0.07) & ~nacelle_fn(X, Y, Z, s, grow=-0.14), "intake")
-        L.paint(bbi, lambda X, Y, Z, s=s: (X * s > NAC_X) & (oval(Y, Z, 0.18, NAC_Z + 0.04, 0.34, 0.30) > 1.0)
-                & (oval(Y, Z, 0.18, NAC_Z + 0.04, 0.34, 0.30) <= 1.4), "gunmetal", only=["hull"])
+            return (np.abs(Y - yc) / ry) ** 4 + (np.abs(Z - zc) / rz) ** 4
+        IN = (0.08, NAC_Z + 0.02, 0.45, 0.30)
+        bbi = (xc - 0.6, xc + 0.6, -0.5, 0.7, 3.0, 4.0)
+        L.carve(bbi, lambda X, Y, Z, s=s: (X * s > NAC_X) & (oval(Y, Z, *IN) <= 1.0)
+                & nacelle_fn(X, Y, Z, s) & ~nacelle_fn(X, Y, Z, s, grow=-0.13))
+        L.paint(bbi, lambda X, Y, Z, s=s: (X * s > NAC_X) & (oval(Y, Z, *IN) <= 1.0)
+                & nacelle_fn(X, Y, Z, s, grow=-0.13) & ~nacelle_fn(X, Y, Z, s, grow=-0.20), "intake")
+        L.paint(bbi, lambda X, Y, Z, s=s: (X * s > NAC_X) & (oval(Y, Z, *IN) > 1.0) & (oval(Y, Z, *IN) <= 2.2),
+                "camo_light", only=["hull", "hull_light", "camo_dark", "camo_light"])
         L.paint((-1.6, 1.6, -3.2, -2.7, 3.2, 3.9),
                 lambda X, Y, Z, s=s: (X * s >= NAC_X + NAC_RX - 0.14) & (oval(Y, Z, -2.96, NAC_Z + 0.08, 0.24, 0.20) <= 1.0),
                 "black", only=["hull"])
         for ys in (-0.6, -1.6):
             L.paint(*box(xc - 0.6, xc + 0.6, ys - 0.015, ys + 0.015, 2.9, 3.95), "seam", only=["hull"])
+
+    # a shadow channel between each pod and the spine, above the roof, so the
+    # pods read as standing proud (rater r11)
+    for s in (1, -1):
+        L.carve((-1.4, 1.4, -3.3, 0.8, 3.0, 4.1),
+                lambda X, Y, Z, s=s: nacelle_fn(X, Y, Z, s, grow=NAC_GAP) & ~nacelle_fn(X, Y, Z, s)
+                & (X * s < NAC_X) & (Z > loft(Y)[1] + 0.03))
 
     # stub wings above the door, planform off the top schematic: a broad
     # swept trapezoid (root chord y 0.37..-2.0, tip y -0.30..-1.42 at 2.45 m),
@@ -499,13 +513,13 @@ def build_pods(L):
             ax = np.abs(X - s * FPOD_X)
             dz = np.abs(Z - FPOD_Z)
             nose = np.clip(Y - (FPOD_Y1 - 0.35), 0, None) * 0.5
-            return (ax <= 0.27 - nose) & (dz <= 0.25 - nose) & (ax + dz <= 0.40 - nose) & (Y >= FPOD_Y0) & (Y <= FPOD_Y1)
-        L.paint((s * FPOD_X - 0.3, s * FPOD_X + 0.3, FPOD_Y0, FPOD_Y1, FPOD_Z - 0.3, FPOD_Z + 0.3), pod, "hull_dark")
-        for dx in (-0.11, 0.11):
-            for dz in (-0.10, 0.10):
-                L.paint(*cyl_y(s * FPOD_X + dx, FPOD_Z + dz, 0.07, FPOD_Y1 - 0.4, FPOD_TUBE_Y), "gunmetal")
-                L.paint(*cyl_y(s * FPOD_X + dx, FPOD_Z + dz, 0.035, FPOD_TUBE_Y - 0.1, FPOD_TUBE_Y + 0.01), "black")
-        L.paint(*box(s * FPOD_X - 0.28, s * FPOD_X + 0.28, FPOD_Y0 + 0.40, FPOD_Y0 + 0.43, FPOD_Z - 0.26, FPOD_Z + 0.26), "seam", only=["hull_dark"])
+            return (ax <= 0.32 - nose) & (dz <= 0.29 - nose) & (ax + dz <= 0.48 - nose) & (Y >= FPOD_Y0) & (Y <= FPOD_Y1)
+        L.paint((s * FPOD_X - 0.35, s * FPOD_X + 0.35, FPOD_Y0, FPOD_Y1, FPOD_Z - 0.35, FPOD_Z + 0.35), pod, "hull_dark")
+        for dx in (-0.13, 0.13):
+            for dz in (-0.12, 0.12):
+                L.paint(*cyl_y(s * FPOD_X + dx, FPOD_Z + dz, 0.085, FPOD_Y1 - 0.4, FPOD_TUBE_Y), "gunmetal")
+                L.paint(*cyl_y(s * FPOD_X + dx, FPOD_Z + dz, 0.045, FPOD_TUBE_Y - 0.1, FPOD_TUBE_Y + 0.01), "black")
+        L.paint(*box(s * FPOD_X - 0.33, s * FPOD_X + 0.33, FPOD_Y0 + 0.40, FPOD_Y0 + 0.43, FPOD_Z - 0.30, FPOD_Z + 0.30), "seam", only=["hull_dark"])
 
 
 
@@ -884,7 +898,7 @@ BOOM_JOINT = (0.0, BOOM_SPLIT_Y, 2.75)
 DOOR_HINGE = {"l": (-1.30, DOOR_Y1, DOOR_Z0), "r": (1.30, DOOR_Y1, DOOR_Z0)}
 RAMP_HINGE = (0.0, RAMP_Y1, 0.88)
 POD_MUZZLES = [(s * POD_X, 0.18, POD_Z) for s in (1, -1)]                 # wing rocket pods
-FPOD_MUZZLES = [(s * FPOD_X + dx, FPOD_TUBE_Y, FPOD_Z + dz) for s in (1, -1) for dz in (0.10, -0.10) for dx in (-0.11, 0.11)]
+FPOD_MUZZLES = [(s * FPOD_X + dx, FPOD_TUBE_Y, FPOD_Z + dz) for s in (1, -1) for dz in (0.12, -0.12) for dx in (-0.13, 0.13)]
 SEATS = [(s * 0.80, y, CABIN_FLOOR + 0.42) for s in (1, -1) for y in (1.30, 0.62, -0.06, -0.74, -1.42)]
 
 
