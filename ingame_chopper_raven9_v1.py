@@ -43,7 +43,9 @@ import struct
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VOXEL_M = 0.03
+# 0.03 m by default; RAVEN9_VOXEL=0.06 builds the half-detail variant from
+# the same metre shapes (the soldiers' grain)
+VOXEL_M = float(os.environ.get("RAVEN9_VOXEL", "0.03"))
 
 
 def c8(v):
@@ -79,8 +81,9 @@ PALETTE = [
 CI = {n: i + 1 for i, (n, _) in enumerate(PALETTE)}
 
 # ------------------------------------------------------------------ grid (file voxels, airframe)
-X0, Y0, Z0 = -110, -292, 0
-NX, NY, NZ = 220, 520, 180
+GRID_M = ((-3.30, 3.30), (-8.76, 6.84), (0.0, 5.40))   # airframe bounds, metres
+X0, Y0, Z0 = [int(math.floor(lo / VOXEL_M)) for lo, _ in GRID_M]
+NX, NY, NZ = [int(math.ceil(hi / VOXEL_M)) - int(math.floor(lo / VOXEL_M)) for lo, hi in GRID_M]
 
 
 def vi(m):
@@ -172,7 +175,7 @@ FAN_R_IN = 0.86                    # duct radius (fan blades inside it)
 SHROUD_R = 1.12                    # octagonal housing round the duct
 GUN_PIVOT = (0.0, 5.02, 0.70)
 GUN_MUZZLE = (0.0, 6.62, 0.66)
-SENSOR = (0.0, 5.96, 1.42)         # lens on the nose-face sensor housing
+SENSOR = (0.0, 6.02, 1.42)         # lens on the sensor block proud of the nose face
 WING_Z, WING_TIP = 2.62, 2.45     # stub wing height at the root, tip half-span
 POD_X, POD_Z = 2.25, 1.74          # rocket pods under the wing tips
 FPOD_X, FPOD_Z = 1.42, 1.24        # forward weapon pods on the cheeks (4 tubes each)
@@ -189,16 +192,18 @@ CAMO_SEED = 9
 
 # fuselage loft: half-width, top, bottom per station. The cabin ends in a
 # hard step (y -3.30 -> -3.40) into a thick, high boom.
-FUS_Y = [-6.30, -4.50, -3.40, -3.30, -2.65, -2.30, -1.00, 0.50, 1.25, 2.40, 3.50, 4.75, 5.45, 5.95]
+FUS_Y = [-6.30, -4.50, -3.40, -3.30, -2.65, -2.30, -1.00, 0.50, 1.25, 2.40, 3.50, 4.75, 5.40, 5.80]
 FUS_W = [0.38, 0.42, 0.48, 0.95, 1.18, 1.26, 1.30, 1.30, 1.28, 1.22, 1.12, 0.94, 0.72, 0.52]
-FUS_T = [3.44, 3.30, 3.30, 3.36, 3.36, 3.30, 3.24, 3.62, 3.86, 3.52, 3.03, 2.46, 2.06, 1.74]
-FUS_B = [2.30, 2.18, 2.10, 1.40, 1.10, 0.86, 0.78, 0.78, 0.78, 0.78, 0.78, 0.80, 0.96, 1.16]
+FUS_T = [3.44, 3.30, 3.30, 3.36, 3.36, 3.30, 3.24, 3.62, 3.86, 3.52, 3.03, 2.40, 1.90, 1.62]
+FUS_B = [2.30, 2.18, 2.10, 1.40, 1.10, 0.86, 0.78, 0.78, 0.78, 0.78, 0.78, 0.80, 0.98, 1.22]
 CHAMFER_TOP = 0.45   # 45-degree facets along the roof edges
 CHAMFER_BOT = 0.32
 LEAN = 0.16          # upper sides lean in (tumblehome) per metre above the waist
 # from the cockpit forward the upper hull leans in hard from just above the
 # cheeks, so the glazing sits on a narrow ~1.4 m hood (front schematic)
-NOSE_LEAN, NOSE_LEAN_FROM = 0.52, 0.60   # per metre, above belly + this
+NOSE_LEAN = 0.52                         # upper nose face, per metre above the crease
+NOSE_CREASE = ([1.6, 3.6, 4.8, 5.8], [1.72, 1.75, 1.62, 1.40])   # (y, z): the hull's widest line
+NOSE_KEEL = ([1.6, 3.4, 5.0, 5.8], [1.10, 0.62, 0.36, 0.30])     # (y, half-width) of the nose bottom
 NOSE_BLEND_Y = (1.2, 2.0)                # cabin section -> nose section
 PANE_POST = 0.12                         # frame post between the side panes
 HOOD_HALF = 0.46                         # half-width of the cockpit hood's flat top
@@ -211,19 +216,26 @@ def loft(y):
 def fus_fn(X, Y, Z, grow=0.0):
     """the faceted hull; grow offsets every face by the same distance (the
     section is shaped from the base loft first, so a negative grow is a
-    true inner shell -- shaping the shrunk loft instead leaned it in less
-    than the outer hull and broke through it at the hood)"""
+    true inner shell).
+
+    Two sections, blended over NOSE_BLEND_Y: the cabin is a slab with a
+    mild tumblehome and 45-degree chamfers; the nose (front 3/4 concept) is
+    a crisp wedge -- widest on a hard crease (NOSE_CREASE), an upper face
+    leaning in to the cockpit hood, a lower face running straight in to a
+    narrow keel (NOSE_KEEL), so the chin is one plane each side"""
     w, t, b = loft(Y)
     f = np.clip((Y - NOSE_BLEND_Y[0]) / (NOSE_BLEND_Y[1] - NOSE_BLEND_Y[0]), 0, 1)
     ct = np.minimum(CHAMFER_TOP * (1 - 0.75 * f), (t - b) * 0.40)
-    # the lower facet widens toward the nose into one chin plane (port profile)
-    cb = np.minimum(CHAMFER_BOT + np.interp(Y, [3.4, 5.95], [0.0, 0.42]), (t - b) * 0.48)
+    cb = np.minimum(CHAMFER_BOT, (t - b) * 0.30) * (1 - f)
     ax = np.abs(X)
-    waist = (t + b) / 2 * (1 - f) + (b + NOSE_LEAN_FROM) * f
-    lean = np.clip(Z - waist, 0, None) * (LEAN * (1 - f) + NOSE_LEAN * f)
-    # the hood keeps a flat top: never lean in past HOOD_HALF + the roof facet
-    lean = np.minimum(lean, np.maximum(w - (HOOD_HALF + ct), 0) * f + lean * (1 - f))
-    hw = w - lean
+    # cabin section
+    hw_c = w - np.clip(Z - (t + b) / 2, 0, None) * LEAN
+    # nose section
+    zc = np.clip(np.interp(Y, *NOSE_CREASE), b + 0.04, t - 0.04)
+    wb = np.minimum(np.interp(Y, *NOSE_KEEL), w)
+    up = np.minimum(np.clip(Z - zc, 0, None) * NOSE_LEAN, np.maximum(w - (HOOD_HALF + ct), 0))
+    lo = np.clip(zc - Z, 0, None) * (w - wb) / np.maximum(zc - b, 0.05)
+    hw = hw_c * (1 - f) + (w - up - lo) * f
     inside = (ax <= hw + grow) & (Z <= t + grow) & (Z >= b - grow)
     inside &= ax + (Z - (t - ct)) <= hw + grow * 1.414 + 1e-6
     inside &= ax + ((b + cb) - Z) <= w + grow * 1.414 + 1e-6
@@ -285,22 +297,10 @@ def build_body(L):
 
     # nose: forward sensor turret proud of the blunt face, a dark crease
     # along the chin facet
-    L.paint(*box(-0.26, 0.26, 5.62, 6.02, SENSOR[2] - 0.16, SENSOR[2] + 0.15), "gunmetal")
-    L.paint(*box(-0.24, 0.24, 6.02, 6.05, SENSOR[2] - 0.12, SENSOR[2] + 0.10), "black")
-    L.paint(*box(0.04, 0.18, 6.04, 6.07, SENSOR[2] - 0.08, SENSOR[2] + 0.06), "lens")
-    L.paint(*box(-0.04, 0.00, 6.04, 6.07, SENSOR[2] - 0.10, SENSOR[2] - 0.07), "green_light")
-    # facet lines of the port profile on both nose sides: sill line from the
-    # gunner pane down to the nose tip, and the lower cheek crease back to the
-    # weapon pod
-    for pts in (((5.92, 1.52), (4.78, 1.90), (3.60, 2.22), (1.80, 2.48)),
-                ((5.92, 1.24), (4.40, 1.36), (3.30, 1.52))):
-        for (y0, z0), (y1, z1) in zip(pts, pts[1:]):
-            def line(X, Y, Z, y0=y0, z0=z0, y1=y1, z1=z1):
-                u = np.clip((Y - y0) / (y1 - y0), 0, 1)
-                return (np.abs(Z - (z0 + (z1 - z0) * u)) <= 0.022) & (Y <= max(y0, y1)) & (Y >= min(y0, y1)) & skin_fn(X, Y, Z)
-            L.paint((-1.4, 1.4, min(y0, y1), max(y0, y1), min(z0, z1) - 0.05, max(z0, z1) + 0.05), line, "seam",
-                    only=["hull", "hull_light"])
-
+    L.paint(*box(-0.26, 0.26, 5.50, 6.04, SENSOR[2] - 0.18, SENSOR[2] + 0.18), "gunmetal")
+    L.paint(*box(-0.22, 0.22, 6.04, 6.07, SENSOR[2] - 0.13, SENSOR[2] + 0.12), "black")
+    L.paint(*box(0.04, 0.18, 6.06, 6.09, SENSOR[2] - 0.08, SENSOR[2] + 0.06), "lens")
+    L.paint(*box(-0.04, 0.00, 6.06, 6.09, SENSOR[2] - 0.10, SENSOR[2] - 0.07), "green_light")
     # cockpits: hollow behind the glazing, dark floors, helmeted crew
     for y0, y1, fz in COCKPITS:
         L.carve((-1.3, 1.3, y0, y1, fz, 4.0), lambda X, Y, Z, fz=fz: fus_fn(X, Y, Z, grow=-0.075) & (Z >= fz))
@@ -817,6 +817,10 @@ if __name__ == "__main__":
     for name, vox in PARTS.items():
         comps = components(vox)
         print(f"{name}: {sum(comps)} vox, components {len(comps)} {comps[:4]}")
+    occ = set(airframe)
+    surf = sum(1 for (x, y, z) in airframe if any(q not in occ for q in (
+        (x+1,y,z),(x-1,y,z),(x,y+1,z),(x,y-1,z),(x,y,z+1),(x,y,z-1))))
+    print(f"voxel {VOXEL_M} m: airframe {len(airframe)} solid, {surf} surface (what the game keeps)")
     vs = list(airframe)
     for i, ax in enumerate("xyz"):
         lo, hi = min(v[i] for v in vs), max(v[i] for v in vs)
