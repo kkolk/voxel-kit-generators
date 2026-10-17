@@ -191,12 +191,13 @@ GUN_MUZZLE = (0.0, 6.62, 0.66)
 SENSOR = (0.0, 6.02, 1.42)         # lens on the sensor block proud of the nose face
 WING_Z, WING_TIP = 2.62, 2.45     # stub wing height at the root, tip half-span
 POD_X, POD_Z = 2.25, 1.74          # rocket pods under the wing tips
+BAY = (1.95, 3.25, 1.04, 1.46)     # cheek bay recess: y0, y1, z0, z1 (rear edge slants forward-down)
 FPOD_X, FPOD_Z = 1.42, 1.24        # forward weapon pods on the cheeks (4 tubes each)
 FPOD_Y0, FPOD_Y1, FPOD_TUBE_Y = 1.90, 3.30, 3.88
 MAIN_WHEEL = (1.46, -1.75, 0.32)   # x, y, radius (centre z = radius)
 NOSE_WHEEL = (0.24, 3.30, 0.22)
 DOOR_Y0, DOOR_Y1, DOOR_Z0, DOOR_Z1 = -0.88, 1.06, 0.88, 2.36
-SPONSON = (1.20, 1.62, -2.62, -0.94, 0.80, 1.82)            # fuel cell: x0, x1, y0, y1, z0, z1
+SPONSON = (1.20, 1.66, -2.62, -0.94, 0.82, 1.78)            # fuel-cell capsule: x0, x1, y0, y1, z0, z1
 RAMP_Y0, RAMP_Y1 = -3.28, -2.30    # ramp spans the sloped rear belly
 FORE_SPLIT_Y = 1.20               # ahead of the door and its step
 BOOM_SPLIT_Y = -3.36
@@ -205,10 +206,10 @@ CAMO_SEED = 9
 
 # fuselage loft: half-width, top, bottom per station. The cabin ends in a
 # hard step (y -3.30 -> -3.40) into a thick, high boom.
-FUS_Y = [-6.30, -4.50, -3.40, -3.30, -2.65, -2.30, -1.00, 0.50, 1.25, 2.40, 3.50, 4.75, 5.40, 5.80]
-FUS_W = [0.38, 0.42, 0.48, 0.95, 1.18, 1.26, 1.30, 1.30, 1.28, 1.22, 1.12, 0.94, 0.72, 0.52]
-FUS_T = [3.44, 3.30, 3.30, 3.36, 3.36, 3.30, 3.24, 3.62, 3.86, 3.52, 3.03, 2.40, 1.90, 1.62]
-FUS_B = [2.30, 2.18, 2.10, 1.40, 1.10, 0.86, 0.78, 0.78, 0.78, 0.78, 0.78, 0.80, 0.98, 1.22]
+FUS_Y = [-6.30, -5.60, -4.50, -3.40, -3.30, -2.65, -2.30, -1.00, 0.50, 1.25, 2.40, 3.50, 4.75, 5.40, 5.80]
+FUS_W = [0.40, 0.52, 0.52, 0.48, 0.95, 1.18, 1.26, 1.30, 1.30, 1.28, 1.22, 1.12, 0.94, 0.72, 0.52]
+FUS_T = [3.46, 3.38, 3.32, 3.30, 3.36, 3.36, 3.30, 3.24, 3.62, 3.86, 3.52, 3.03, 2.40, 1.90, 1.62]
+FUS_B = [2.24, 2.14, 2.12, 2.10, 1.40, 1.10, 0.86, 0.78, 0.78, 0.78, 0.78, 0.78, 0.80, 0.98, 1.22]
 CHAMFER_TOP = 0.45   # 45-degree facets along the roof edges
 CHAMFER_BOT = 0.32
 LEAN = 0.16          # upper sides lean in (tumblehome) per metre above the waist
@@ -217,7 +218,9 @@ LEAN = 0.16          # upper sides lean in (tumblehome) per metre above the wais
 NOSE_LEAN = 0.52                         # upper nose face, per metre above the crease
 NOSE_CREASE = ([1.6, 3.6, 4.8, 5.8], [1.72, 1.75, 1.62, 1.40])   # (y, z): the hull's widest line
 NOSE_KEEL = ([1.6, 3.4, 5.0, 5.8], [1.10, 0.62, 0.36, 0.30])     # (y, half-width) of the nose bottom
+NOSE_CHEEK = ([1.6, 3.6, 5.0, 5.8], [0.35, 0.35, 0.20, 0.0])     # (y, height) of the flat cheek band
 NOSE_BLEND_Y = (1.2, 2.0)                # cabin section -> nose section
+GLASS_BAND = 0.30                        # solid hull between roof glass and side panes (rater r10)
 PANE_POST = 0.12                         # frame post between the side panes
 HOOD_HALF = 0.46                         # half-width of the cockpit hood's flat top
 
@@ -235,7 +238,8 @@ def fus_fn(X, Y, Z, grow=0.0):
     mild tumblehome and 45-degree chamfers; the nose (front 3/4 concept) is
     a crisp wedge -- widest on a hard crease (NOSE_CREASE), an upper face
     leaning in to the cockpit hood, a lower face running straight in to a
-    narrow keel (NOSE_KEEL), so the chin is one plane each side"""
+    narrow keel (NOSE_KEEL), so the chin is one plane each side; a
+    near-vertical cheek band (NOSE_CHEEK) runs under the crease"""
     w, t, b = loft(Y)
     f = np.clip((Y - NOSE_BLEND_Y[0]) / (NOSE_BLEND_Y[1] - NOSE_BLEND_Y[0]), 0, 1)
     ct = np.minimum(CHAMFER_TOP * (1 - 0.75 * f), (t - b) * 0.40)
@@ -247,7 +251,9 @@ def fus_fn(X, Y, Z, grow=0.0):
     zc = np.clip(np.interp(Y, *NOSE_CREASE), b + 0.04, t - 0.04)
     wb = np.minimum(np.interp(Y, *NOSE_KEEL), w)
     up = np.minimum(np.clip(Z - zc, 0, None) * NOSE_LEAN, np.maximum(w - (HOOD_HALF + ct), 0))
-    lo = np.clip(zc - Z, 0, None) * (w - wb) / np.maximum(zc - b, 0.05)
+    ch = np.interp(Y, *NOSE_CHEEK)                      # vertical cheek band under the crease
+    zl = np.maximum(zc - ch, b + 0.04)
+    lo = np.clip(zl - Z, 0, None) * (w - wb) / np.maximum(zl - b, 0.05)
     hw = hw_c * (1 - f) + (w - up - lo) * f
     inside = (ax <= hw + grow) & (Z <= t + grow) & (Z >= b - grow)
     inside &= ax + (Z - (t - ct)) <= hw + grow * 1.414 + 1e-6
@@ -270,13 +276,13 @@ def window_fn(X, Y, Z):
     # (5.15, 1.86) so the pillar ahead of it is narrow (owner, r9), the front
     # edge up to (3.94, 2.81), short top, upright rear at 3.60, a sill that
     # falls toward the nose
-    gunner = (Y >= 3.60) & (Y <= 5.15 - (Z - 1.86) * 1.27) & (Z <= np.minimum(2.84, t - 0.10)) \
+    gunner = (Y >= 3.60) & (Y <= 5.15 - (Z - 1.86) * 1.27) & (Z <= np.minimum(2.84, t - GLASS_BAND)) \
         & (Z >= 1.86 + (5.15 - Y) * 0.25)
     # pilot (rear seat): front edge one frame post behind the gunner pane,
     # sill rising toward the rear, top running just under the hull line,
     # upright rear edge at 1.79 (owner, r8)
     pilot = (Y >= 1.79) & (Y <= 3.60 - PANE_POST) & (Z >= 2.50 + (3.51 - Y) * 0.30) \
-        & (Z <= np.minimum(2.97 + (3.51 - Y) * 0.22, t - 0.12))
+        & (Z <= np.minimum(2.97 + (3.51 - Y) * 0.22, t - GLASS_BAND))
     # roof strip over both seats (owner's r4 pick): rectangular panes split
     # by straight frame bars; it stops 0.06 m short of the hood edges so the
     # bars always meet the side frames
@@ -299,10 +305,10 @@ def nacelle_fn(X, Y, Z, s, grow=0.0):
     rx, rz = NAC_RX * f + grow, NAC_RZ * f + grow
     dx, dz = (X - xc) * s, Z - NAC_Z                      # dx > 0 outboard
     front = 0.55 + grow - (NAC_Z + 0.5 - Z) * 0.30          # raked intake face, top leading
-    # angular section: the top slopes down and outward off the mast tower
-    # (front schematic), a small chamfer at the outer bottom
-    return (np.abs(dx) <= rx) & (np.abs(dz) <= rz) & (dz <= rz - (dx + rx) * 0.45) \
-        & (dx - dz <= rx + rz * 0.6) & (Y >= -3.22 - grow) & (Y <= front)
+    # rounded section (superellipse, rater r10) whose top still slopes down
+    # and outward off the mast tower (front schematic)
+    return ((np.abs(dx) / rx) ** 3 + (np.abs(dz) / rz) ** 3 <= 1.0) & (dz <= rz - (dx + rx) * 0.28) \
+        & (Y >= -3.22 - grow) & (Y <= front)
 
 
 # ------------------------------------------------------------------ body
@@ -311,10 +317,17 @@ def build_body(L):
 
     # nose: forward sensor turret proud of the blunt face, a dark crease
     # along the chin facet
-    L.paint(*box(-0.26, 0.26, 5.50, 6.04, SENSOR[2] - 0.18, SENSOR[2] + 0.18), "gunmetal")
-    L.paint(*box(-0.22, 0.22, 6.04, 6.07, SENSOR[2] - 0.13, SENSOR[2] + 0.12), "black")
-    L.paint(*box(0.04, 0.18, 6.06, 6.09, SENSOR[2] - 0.08, SENSOR[2] + 0.06), "lens")
-    L.paint(*box(-0.04, 0.00, 6.06, 6.09, SENSOR[2] - 0.10, SENSOR[2] - 0.07), "green_light")
+    L.paint(*box(-0.26, 0.26, 5.46, 6.04, SENSOR[2] - 0.23, SENSOR[2] + 0.22), "gunmetal")
+    L.paint(*box(-0.20, 0.20, 6.04, 6.10, SENSOR[2] - 0.16, SENSOR[2] + 0.16), "black")      # lens plate
+    L.paint(*box(0.02, 0.16, 6.08, 6.14, SENSOR[2] - 0.08, SENSOR[2] + 0.08), "lens")
+    L.paint(*box(-0.14, -0.04, 6.08, 6.14, SENSOR[2] - 0.12, SENSOR[2] - 0.04), "green_light")
+    # 5b. cheek missile bay: a recess one hull skin deep ahead of the wing, a
+    # slanted rear edge, dark inside (the 4-tube pod hangs just outboard)
+    def bay(X, Y, Z):
+        return (np.abs(X) > 0.5) & (Y <= BAY[1]) & (Y >= BAY[0] + (BAY[3] - Z) * 0.6) & (Z >= BAY[2]) & (Z <= BAY[3])
+    bbb = (-1.4, 1.4, BAY[0], BAY[1], BAY[2], BAY[3])
+    L.carve(bbb, lambda X, Y, Z: bay(X, Y, Z) & fus_fn(X, Y, Z) & ~fus_fn(X, Y, Z, grow=-0.12))
+    L.paint(bbb, lambda X, Y, Z: bay(X, Y, Z) & fus_fn(X, Y, Z, grow=-0.12) & ~fus_fn(X, Y, Z, grow=-0.18), "cockpit")
     # cockpits: hollow behind the glazing, dark floors, helmeted crew
     for y0, y1, fz in COCKPITS:
         L.carve((-1.3, 1.3, y0, y1, fz, 4.0), lambda X, Y, Z, fz=fz: fus_fn(X, Y, Z, grow=-0.075) & (Z >= fz))
@@ -334,7 +347,7 @@ def build_body(L):
         h = np.interp(Y, SPINE_Y, SPINE_Z)
         ax = np.abs(X)
         return (Y >= SPINE_Y[0]) & (Y <= SPINE_Y[-1]) & (Z >= 3.0) & (Z <= h) \
-            & (ax <= 0.66 - (Z - 3.0) * 0.20) & (ax + (Z - (h - 0.10)) <= 0.66 - (Z - 3.0) * 0.20)
+            & (ax <= 0.66 - (Z - 3.0) * 0.20) & (ax + (Z - (h - 0.24)) <= 0.66 - (Z - 3.0) * 0.20)
     L.paint((-0.7, 0.7, SPINE_Y[0], SPINE_Y[-1], 3.0, 4.45), spine, "hull")
     L.paint(*box(-0.50, 0.50, -1.86, -1.80, 3.3, 4.38), "seam", only=["hull"])
     L.paint(*box(-0.42, 0.42, -0.90, -0.86, 4.0, 4.42), "seam", only=["hull"])
@@ -355,21 +368,36 @@ def build_body(L):
             front = 0.55 - (NAC_Z + 0.5 - Z) * 0.30
             return ((X - xc) ** 2 / 0.30 ** 2 + (Z - NAC_Z + 0.06) ** 2 / 0.32 ** 2 <= 1.0) & (Y >= front - 0.10) & (Y <= front + 0.01)
         L.paint((xc - 0.4, xc + 0.4, 0.2, 0.8, 2.9, 3.9), intake, "intake")
-        L.paint(*cyl_y(xc, NAC_Z + 0.06, 0.24, -3.24, -3.08), "gunmetal")
-        L.paint(*cyl_y(xc, NAC_Z + 0.06, 0.16, -3.26, -3.12), "black")
+        # exhaust nozzle: tapers aft and kicks up 15 deg, dark notch in its end
+        def nozzle(X, Y, Z, xc=xc, rr=0.0):
+            u = np.clip((-2.95 - Y) / 0.38, 0, 1)
+            zc = NAC_Z + 0.06 + (-2.95 - Y).clip(0) * 0.27
+            r = 0.30 - 0.10 * u - rr
+            # ends on the cabin/boom split, so the nozzle stays in body_aft
+            return ((X - xc) ** 2 + (Z - zc) ** 2 <= r * r) & (Y <= -2.90) & (Y >= BOOM_SPLIT_Y + 0.01)
+        L.paint((xc - 0.35, xc + 0.35, -3.4, -2.85, 3.1, 3.9), nozzle, "gunmetal")
+        L.paint((xc - 0.35, xc + 0.35, -3.4, -3.20, 3.1, 3.9),
+                lambda X, Y, Z, xc=xc: nozzle(X, Y, Z, xc, 0.08) & (Y <= -3.22), "black")
         def vent(X, Y, Z, s=s, xc=xc):
             return (X * s >= NAC_X + NAC_RX - 0.10) & ((Y + 2.30) ** 2 / 0.32 ** 2 + (Z - (NAC_Z - 0.16)) ** 2 / 0.12 ** 2 <= 1.0)
         L.paint((-1.5, 1.5, -2.7, -1.9, 3.0, 3.4), vent, "intake", only=["hull"])
         # flank openings, as the concept draws them: the intake scoop forward,
         # the exhaust aft, both dark ovals on the nacelle's outer face
-        for yc, zc, ry, rz, col in ((0.18, NAC_Z + 0.04, 0.34, 0.30, "intake"), (-2.96, NAC_Z + 0.08, 0.24, 0.20, "black")):
-            def flank(X, Y, Z, s=s, yc=yc, zc=zc, ry=ry, rz=rz):
-                return (X * s >= NAC_X + NAC_RX - 0.12) & ((Y - yc) ** 2 / ry ** 2 + (Z - zc) ** 2 / rz ** 2 <= 1.0)
-            def rim(X, Y, Z, s=s, yc=yc, zc=zc, ry=ry, rz=rz):
-                q = (Y - yc) ** 2 / ry ** 2 + (Z - zc) ** 2 / rz ** 2
-                return (X * s >= NAC_X + NAC_RX - 0.12) & (q > 1.0) & (q <= 1.35)
-            L.paint((-1.6, 1.6, yc - ry - 0.1, yc + ry + 0.1, zc - rz - 0.1, zc + rz + 0.1), rim, "gunmetal", only=["hull"])
-            L.paint((-1.6, 1.6, yc - ry, yc + ry, zc - rz, zc + rz), flank, col, only=["hull"])
+        # intake: a real oval recess in the nacelle's forward-outboard flank,
+        # one voxel deep with a dark inner face; the exhaust's flank opening
+        # stays a dark oval
+        def oval(Y, Z, yc, zc, ry, rz):
+            return (Y - yc) ** 2 / ry ** 2 + (Z - zc) ** 2 / rz ** 2
+        bbi = (xc - 0.6, xc + 0.6, -0.3, 0.7, 3.0, 3.9)
+        L.carve(bbi, lambda X, Y, Z, s=s: (X * s > NAC_X) & (oval(Y, Z, 0.18, NAC_Z + 0.04, 0.34, 0.30) <= 1.0)
+                & nacelle_fn(X, Y, Z, s) & ~nacelle_fn(X, Y, Z, s, grow=-0.07))
+        L.paint(bbi, lambda X, Y, Z, s=s: (X * s > NAC_X) & (oval(Y, Z, 0.18, NAC_Z + 0.04, 0.34, 0.30) <= 1.0)
+                & nacelle_fn(X, Y, Z, s, grow=-0.07) & ~nacelle_fn(X, Y, Z, s, grow=-0.14), "intake")
+        L.paint(bbi, lambda X, Y, Z, s=s: (X * s > NAC_X) & (oval(Y, Z, 0.18, NAC_Z + 0.04, 0.34, 0.30) > 1.0)
+                & (oval(Y, Z, 0.18, NAC_Z + 0.04, 0.34, 0.30) <= 1.4), "gunmetal", only=["hull"])
+        L.paint((-1.6, 1.6, -3.2, -2.7, 3.2, 3.9),
+                lambda X, Y, Z, s=s: (X * s >= NAC_X + NAC_RX - 0.14) & (oval(Y, Z, -2.96, NAC_Z + 0.08, 0.24, 0.20) <= 1.0),
+                "black", only=["hull"])
         for ys in (-0.6, -1.6):
             L.paint(*box(xc - 0.6, xc + 0.6, ys - 0.015, ys + 0.015, 2.9, 3.95), "seam", only=["hull"])
 
@@ -395,11 +423,13 @@ def build_body(L):
         # fuel-cell sponson behind the door, rounded ends; the main wheel under it
         x0, x1, y0, y1, z0, z1 = SPONSON
         def spon(X, Y, Z, s=s):
+            # a capsule along y: nose cone forward (toward the door), rounded aft
+            R, xc, zc = (z1 - z0) / 2, x1 - (z1 - z0) / 2, (z0 + z1) / 2
+            front = np.clip((y1 - Y) / 0.55, 0.30, 1.0)
+            back = np.sqrt(np.clip(1 - ((y0 + R * 0.6 - Y) / (R * 0.6)).clip(0) ** 2, 0, 1))
+            r = R * front * back
             ax = X * s
-            rr = 0.5
-            yy = np.clip(np.maximum(y0 + rr - Y, Y - (y1 - rr)), 0, None)
-            return (ax >= x0 - 0.3) & (ax <= x1) & (Z >= z0) & (Z <= z1) & (Y >= y0) & (Y <= y1) \
-                & ((ax - (x1 - rr)).clip(0) ** 2 + yy ** 2 <= rr * rr)
+            return (ax >= 1.0) & (Y >= y0) & (Y <= y1) & ((np.maximum(ax - xc, 0)) ** 2 + (Z - zc) ** 2 <= r * r)
         L.paint((-1.7, 1.7, y0, y1, z0, z1), spon, "hull")
         L.paint(*box(min(s * 1.40, s * 1.60), max(s * 1.40, s * 1.60), -1.85, -1.55, 1.30, 1.40), "seam", only=["hull"])
     # gear-leg stubs out of the belly and sponsons (the legs and wheels are
@@ -427,9 +457,6 @@ def build_body(L):
             ring = (Y >= DOOR_Y0 - 0.05) & (Y <= DOOR_Y1 + 0.05) & (Z >= DOOR_Z0 - 0.05) & (Z <= DOOR_Z1 + 0.05)
             return ring & (X * s >= w - 0.20)
         L.paint((-1.5, 1.5, DOOR_Y0 - 0.06, DOOR_Y1 + 0.06, DOOR_Z0 - 0.06, DOOR_Z1 + 0.06), door_gap, "seam", only=["hull"])
-        L.paint(*box(min(s * 1.20, s * 1.42), max(s * 1.20, s * 1.42), DOOR_Y0 + 0.30, DOOR_Y1 - 0.30, 0.42, 0.48), "gunmetal")
-        for yy in (DOOR_Y0 + 0.30, DOOR_Y1 - 0.36):
-            L.paint(*box(min(s * 1.20, s * 1.30), max(s * 1.20, s * 1.30), yy, yy + 0.06, 0.42, 0.95), "gunmetal")
         # cabin window aft of the door
         def win(X, Y, Z, s=s):
             w, t, b = loft(Y)
@@ -518,14 +545,14 @@ def ramp_fn(X, Y, Z, grow=0.0):
 def shroud_fn(X, Y, Z, r_out=SHROUD_R):
     dy, dz = np.abs(Y - TAIL_HUB[1]), np.abs(Z - TAIL_HUB[2])
     octa = (np.maximum(dy, dz) <= r_out) & (dy + dz <= r_out * 1.30)
-    return octa & (dy * dy + dz * dz >= FAN_R_IN ** 2) & (np.abs(X) <= 0.32)
+    return octa & (dy * dy + dz * dz >= FAN_R_IN ** 2) & (np.abs(X) <= 0.38)
 
 
 def build_tail(L):
     hy, hz = TAIL_HUB[1], TAIL_HUB[2]
     # octagonal housing round the duct, faired into the boom
-    L.paint((-0.35, 0.35, hy - 1.2, hy + 1.2, hz - 1.2, hz + 1.2), shroud_fn, "hull")
-    L.paint(*cyl_x(hy, hz, FAN_R_IN + 0.03, -0.31, 0.31, r_in=FAN_R_IN), "hull_dark")
+    L.paint((-0.40, 0.40, hy - 1.2, hy + 1.2, hz - 1.2, hz + 1.2), shroud_fn, "hull")
+    L.paint(*cyl_x(hy, hz, FAN_R_IN + 0.06, -0.37, 0.37, r_in=FAN_R_IN), "hull_dark")
     L.paint(*box(-0.04, 0.04, hy - FAN_R_IN, hy + FAN_R_IN, hz - 0.03, hz + 0.03), "gunmetal")
     L.paint(*cyl_x(hy, hz, 0.16, -0.12, 0.12), "gunmetal")
     # vertical stabiliser above the housing: big, nearly upright, flat top
@@ -544,9 +571,9 @@ def build_tail(L):
     for s in (1, -1):
         def stab(X, Y, Z, s=s):
             ax = X * s
-            return (ax >= 0.2) & (ax <= 1.05) & (Y <= -4.85 - (ax - 0.2) * 0.20) & (Y >= -6.10 - (ax - 0.2) * 0.05) \
+            return (ax >= 0.2) & (ax <= 1.05) & (Y <= -4.75 - (ax - 0.2) * 0.20) & (Y >= -6.20 - (ax - 0.2) * 0.05) \
                 & (Z >= 2.62) & (Z <= 2.71)
-        L.paint((-1.4, 1.4, -6.2, -4.8, 2.6, 2.75), stab, "hull")
+        L.paint((-1.4, 1.4, -6.3, -4.7, 2.6, 2.75), stab, "hull")
         def endplate(X, Y, Z, s=s):
             zz = Z - 2.62
             cx = s * (1.02 + np.clip(zz, 0, None) * 0.27)
@@ -565,16 +592,23 @@ def livery(a):
     # read as hard-edged facets), each cell dark, tan or base
     n = 260
     pts = np.stack([rng.uniform(-3.2, 3.2, n), rng.uniform(-8.8, 6.8, n), rng.uniform(0, 5.4, n)], 1)
-    kind = rng.choice([0, 1, 2], n, p=[0.42, 0.33, 0.25])
+    kind = rng.choice([0, 1, 2], (n, 3), p=[0.42, 0.33, 0.25])   # per cell, per nose face
     idx = np.argwhere(hull)
     P = np.stack([(idx[:, 0] + X0 + 0.5) * VOXEL_M, (idx[:, 1] + Y0 + 0.5) * VOXEL_M, (idx[:, 2] + Z0 + 0.5) * VOXEL_M], 1)
     best = np.full(len(P), np.inf)
     lab = np.zeros(len(P), int)
+    # which nose face a voxel is on (upper face / cheek band / chin), so patch
+    # edges follow the creases; 0 everywhere aft of the nose
+    zc = np.interp(P[:, 1], *NOSE_CREASE)
+    zl = zc - np.interp(P[:, 1], *NOSE_CHEEK)
+    face = np.where(P[:, 1] < NOSE_BLEND_Y[1], 0, np.where(P[:, 2] >= zc, 0, np.where(P[:, 2] >= zl, 1, 2)))
+    cell = np.zeros(len(P), int)
     for i, p in enumerate(pts):
         d = np.abs(P[:, 0] - p[0]) * 0.8 + np.abs(P[:, 1] - p[1]) + np.abs(P[:, 2] - p[2]) * 1.3   # L1: faceted cells
         m = d < best
         best[m] = d[m]
-        lab[m] = kind[i]
+        cell[m] = i
+    lab = kind[cell, face]
     col = np.where(lab == 1, CI["camo_dark"], np.where(lab == 2, CI["camo_light"], CI["hull"]))
     a[idx[:, 0], idx[:, 1], idx[:, 2]] = col
     # top faces a shade lighter
@@ -782,17 +816,25 @@ for _s, _d in ((-1, _door_l), (1, _door_r)):
             & (Z >= DOOR_Z0 + 0.02) & (Z <= DOOR_Z1 - 0.02)
     _d.paint((-1.4, 1.4, DOOR_Y0, DOOR_Y1, DOOR_Z0, DOOR_Z1), _door, "hull")
     _d.paint((-1.4, 1.4, DOOR_Y0, DOOR_Y1, DOOR_Z0, DOOR_Z1),
-             lambda X, Y, Z: (Y <= DOOR_Y0 + 0.10) | (Y >= DOOR_Y1 - 0.10) | (Z <= DOOR_Z0 + 0.10) | (Z >= DOOR_Z1 - 0.10),
+             lambda X, Y, Z: (Y <= DOOR_Y0 + 0.14) | (Y >= DOOR_Y1 - 0.14) | (Z <= DOOR_Z0 + 0.14) | (Z >= DOOR_Z1 - 0.14),
              "hull_dark", only=["hull"])
+    # 2 x 2 panels, each recessed one voxel inside the frame and the cross bars
+    _ym = (DOOR_Y0 + DOOR_Y1) / 2
+    def _panel(X, Y, Z, s=_s):
+        w, t, b = loft(Y)
+        iny = ((Y > DOOR_Y0 + 0.14) & (Y < _ym - 0.05)) | ((Y > _ym + 0.05) & (Y < DOOR_Y1 - 0.14))
+        inz = ((Z > DOOR_Z0 + 0.14) & (Z < 1.57)) | ((Z > 1.67) & (Z < DOOR_Z1 - 0.14))
+        return iny & inz & (X * s >= w - 0.05)
+    _d.carve((-1.5, 1.5, DOOR_Y0, DOOR_Y1, DOOR_Z0, DOOR_Z1), _panel)
     # door windows and handle
     def _dwin(X, Y, Z, s=_s):
         w, t, b = loft(Y)
-        return (X * s >= w - 0.06) & ((Y >= -0.70) & (Y <= -0.14) | (Y >= 0.32) & (Y <= 0.88)) & (Z >= 1.86) & (Z <= 2.22)
+        return (X * s >= w - 0.12) & ((Y >= -0.66) & (Y <= -0.14) | (Y >= 0.32) & (Y <= 0.84)) & (Z >= 1.84) & (Z <= 2.16)
     _d.paint((-1.5, 1.5, -0.8, 1.0, 1.8, 2.3), _dwin, "window", only=["hull"])
     # four-panel door: a cross seam
     _d.paint((-1.5, 1.5, DOOR_Y0, DOOR_Y1, DOOR_Z0, DOOR_Z1),
-             lambda X, Y, Z: (np.abs(Y - (DOOR_Y0 + DOOR_Y1) / 2) <= 0.031) | (np.abs(Z - 1.62) <= 0.031),
-             "seam", only=["hull"])
+             lambda X, Y, Z: (np.abs(Y - _ym) <= 0.05) | (np.abs(Z - 1.62) <= 0.05),
+             "hull_dark", only=["hull"])
     _d.paint((-1.4, 1.4, DOOR_Y1 - 0.25, DOOR_Y1 - 0.12, 1.33, 1.43),
              lambda X, Y, Z, s=_s: X * s >= loft(Y)[0] - 0.06, "steel", only=["hull"])
 _ramp.paint((-1.1, 1.1, RAMP_Y0, RAMP_Y1, 0.5, 2.4), ramp_fn, "hull_dark")
