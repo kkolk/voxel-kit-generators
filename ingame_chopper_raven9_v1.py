@@ -599,36 +599,49 @@ def build_tail(L):
 # ------------------------------------------------------------------ livery
 def livery(a):
     """naval-grey hull broken by angular two-tone camo (darker and lighter
-    greys), lighter on upward faces"""
+    greys), lighter on upward faces. Patches are flat polygons: a 2D
+    Voronoi on the skin unrolled around the fuselage (y along, arc length
+    round the loft's mid-line across), so their edges stay straight lines on
+    the curved hull instead of warping like 3D cells"""
     hull = a == CI["hull"]
     rng = np.random.default_rng(CAMO_SEED)
-    # angular patches: nearest seed point on a rotated lattice (Voronoi cells
-    # read as hard-edged facets), each cell dark, tan or base
-    n = 120                                  # fewer, larger cells: 0.6-1.2 m patches (rater r12)
-    pts = np.stack([rng.uniform(-3.2, 3.2, n), rng.uniform(-8.8, 6.8, n), rng.uniform(0, 5.4, n)], 1)
-    kind = rng.choice([0, 1, 2], (n, 3), p=[0.42, 0.33, 0.25])   # per cell, per nose face
     idx = np.argwhere(hull)
     P = np.stack([(idx[:, 0] + X0 + 0.5) * VOXEL_M, (idx[:, 1] + Y0 + 0.5) * VOXEL_M, (idx[:, 2] + Z0 + 0.5) * VOXEL_M], 1)
-    best = np.full(len(P), np.inf)
-    lab = np.zeros(len(P), int)
+    zm = (np.interp(P[:, 1], FUS_Y, FUS_T) + np.interp(P[:, 1], FUS_Y, FUS_B)) / 2
+    arc = np.arctan2(P[:, 0], P[:, 2] - zm) * 1.3          # 0 on the roof, +-4.1 m at the keel
     # which nose face a voxel is on (upper face / cheek band / chin), so patch
-    # edges follow the creases; 0 everywhere aft of the nose
+    # edges also break at the creases; 0 everywhere aft of the nose
     zc = np.interp(P[:, 1], *NOSE_CREASE)
     zl = zc - np.interp(P[:, 1], *NOSE_CHEEK)
     face = np.where(P[:, 1] < NOSE_BLEND_Y[1], 0, np.where(P[:, 2] >= zc, 0, np.where(P[:, 2] >= zl, 1, 2)))
-    cell = np.zeros(len(P), int)
-    for i, p in enumerate(pts):
-        d = np.abs(P[:, 0] - p[0]) * 0.8 + np.abs(P[:, 1] - p[1]) + np.abs(P[:, 2] - p[2]) * 1.3   # L1: faceted cells
-        m = d < best
-        best[m] = d[m]
-        cell[m] = i
-    lab = kind[cell, face]
+
+    def cells(u, v, n, ur, vr):
+        """nearest of n sites (Euclidean: convex, straight-edged cells)"""
+        su, sv = rng.uniform(*ur, n), rng.uniform(*vr, n)
+        best = np.full(len(u), np.inf)
+        cell = np.zeros(len(u), int)
+        for i in range(n):
+            d = (u - su[i]) ** 2 + (v - sv[i]) ** 2
+            m = d < best
+            best[m], cell[m] = d[m], i
+        return cell
+
+    p = [0.42, 0.33, 0.25]                                     # base / dark / light
+    n = 150                                                    # 0.6-1.2 m patches
+    cell = cells(P[:, 1], arc, n, (-8.8, 6.8), (-4.1, 4.1))
+    lab = rng.choice([0, 1, 2], (n, 3), p=p)[cell, face]
     col = np.where(lab == 1, CI["camo_dark"], np.where(lab == 2, CI["camo_light"], CI["hull"]))
     # one mid-grey patch (~0.8 m diamond) breaks the pale lower cheek each side
     cheek = np.abs(P[:, 1] - 2.9) * 0.8 + np.abs(P[:, 2] - 1.25) <= 0.40
     col = np.where(cheek & (col == CI["camo_light"]), CI["hull"], col)
     on_spine = (np.abs(P[:, 0]) < 0.62) & (P[:, 2] > 3.25) & (P[:, 1] > SPINE_Y[0]) & (P[:, 1] < SPINE_Y[-1])
     col = np.where(on_spine & (col == CI["camo_dark"]), CI["hull"], col)
+    # dark slanted patch on each chin plane under the cheek bay
+    chin = (face == 2) & (P[:, 1] > 2.55 + (P[:, 2] - 0.6) * 0.9) & (P[:, 1] < 3.55 - (P[:, 2] - 0.6) * 0.6)
+    col = np.where(chin, CI["camo_dark"], col)
+    # dark trapezoid on the forward deck between the canopy and the nacelles
+    deck = (np.abs(arc) < 1.3) & (P[:, 1] > 0.75) & (P[:, 1] < 1.70 - np.abs(P[:, 0]) * 0.5) & (np.abs(P[:, 0]) < 0.95) & ~on_spine
+    col = np.where(deck, CI["camo_dark"], col)
     a[idx[:, 0], idx[:, 1], idx[:, 2]] = col
     # top faces a shade lighter
     e = np.zeros(a.shape, bool)
