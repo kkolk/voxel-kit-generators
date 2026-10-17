@@ -280,9 +280,11 @@ def window_fn(X, Y, Z):
         & (Z >= 1.86 + (5.15 - Y) * 0.25)
     # pilot (rear seat): front edge one frame post behind the gunner pane,
     # sill rising toward the rear, top running just under the hull line,
-    # upright rear edge at 1.79 (owner, r8)
-    pilot = (Y >= 1.79) & (Y <= 3.60 - PANE_POST) & (Z >= 2.50 + (3.51 - Y) * 0.30) \
-        & (Z <= np.minimum(2.97 + (3.51 - Y) * 0.22, t - GLASS_BAND))
+    # upright rear edge at 1.79 (owner, r8); sill dropped so the pane is
+    # 1.5x as tall as the r15 one (owner, r16)
+    p_top = np.minimum(2.97 + (3.51 - Y) * 0.22, t - GLASS_BAND)
+    p_sill = p_top - 1.5 * (p_top - (2.50 + (3.51 - Y) * 0.30))
+    pilot = (Y >= 1.79) & (Y <= 3.60 - PANE_POST) & (Z >= p_sill) & (Z <= p_top)
     # roof strip over both seats (owner's r4 pick): rectangular panes split
     # by straight frame bars; it stops 0.06 m short of the hood edges so the
     # bars always meet the side frames
