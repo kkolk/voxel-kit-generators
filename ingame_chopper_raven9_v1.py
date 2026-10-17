@@ -172,9 +172,9 @@ FAN_R_IN = 0.86                    # duct radius (fan blades inside it)
 SHROUD_R = 1.12                    # octagonal housing round the duct
 GUN_PIVOT = (0.0, 5.02, 0.70)
 GUN_MUZZLE = (0.0, 6.62, 0.66)
-SENSOR = (0.0, 5.92, 1.30)
+SENSOR = (0.0, 5.96, 1.16)         # lens on the chin sensor housing
 WING_Z, WING_TIP = 2.62, 2.45     # stub wing height at the root, tip half-span
-POD_X, POD_Z = 2.25, 1.92          # rocket pods under the wing tips
+POD_X, POD_Z = 2.25, 1.74          # rocket pods under the wing tips
 FPOD_X, FPOD_Z = 1.42, 1.24        # forward weapon pods on the cheeks (4 tubes each)
 FPOD_Y0, FPOD_Y1, FPOD_TUBE_Y = 1.90, 3.30, 3.88
 MAIN_WHEEL = (1.46, -1.75, 0.32)   # x, y, radius (centre z = radius)
@@ -196,6 +196,11 @@ FUS_B = [2.30, 2.18, 2.10, 1.40, 1.10, 0.86, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78,
 CHAMFER_TOP = 0.45   # 45-degree facets along the roof edges
 CHAMFER_BOT = 0.32
 LEAN = 0.16          # upper sides lean in (tumblehome) per metre above the waist
+# from the cockpit forward the upper hull leans in hard from just above the
+# cheeks, so the glazing sits on a narrow ~1.4 m hood (front schematic)
+NOSE_LEAN, NOSE_LEAN_FROM = 0.52, 0.60   # per metre, above belly + this
+NOSE_BLEND_Y = (1.2, 2.0)                # cabin section -> nose section
+HOOD_HALF = 0.46                         # half-width of the cockpit hood's flat top
 
 
 def loft(y):
@@ -203,15 +208,23 @@ def loft(y):
 
 
 def fus_fn(X, Y, Z, grow=0.0):
+    """the faceted hull; grow offsets every face by the same distance (the
+    section is shaped from the base loft first, so a negative grow is a
+    true inner shell -- shaping the shrunk loft instead leaned it in less
+    than the outer hull and broke through it at the hood)"""
     w, t, b = loft(Y)
-    w, t, b = w + grow, t + grow, b - grow
-    ct = np.minimum(CHAMFER_TOP, (t - b) * 0.40)
+    f = np.clip((Y - NOSE_BLEND_Y[0]) / (NOSE_BLEND_Y[1] - NOSE_BLEND_Y[0]), 0, 1)
+    ct = np.minimum(CHAMFER_TOP * (1 - 0.75 * f), (t - b) * 0.40)
     cb = np.minimum(CHAMFER_BOT, (t - b) * 0.30)
     ax = np.abs(X)
-    lean = np.clip(Z - (t + b) / 2, 0, None) * LEAN
-    inside = (ax <= w - lean) & (Z <= t) & (Z >= b)
-    inside &= ax + (Z - (t - ct)) <= w - lean + 1e-6
-    inside &= ax + ((b + cb) - Z) <= w + 1e-6
+    waist = (t + b) / 2 * (1 - f) + (b + NOSE_LEAN_FROM) * f
+    lean = np.clip(Z - waist, 0, None) * (LEAN * (1 - f) + NOSE_LEAN * f)
+    # the hood keeps a flat top: never lean in past HOOD_HALF + the roof facet
+    lean = np.minimum(lean, np.maximum(w - (HOOD_HALF + ct), 0) * f + lean * (1 - f))
+    hw = w - lean
+    inside = (ax <= hw + grow) & (Z <= t + grow) & (Z >= b - grow)
+    inside &= ax + (Z - (t - ct)) <= hw + grow * 1.414 + 1e-6
+    inside &= ax + ((b + cb) - Z) <= w + grow * 1.414 + 1e-6
     return inside & (Y >= FUS_Y[0] - grow) & (Y <= FUS_Y[-1] + grow)
 
 
@@ -230,16 +243,15 @@ def window_fn(X, Y, Z):
     gunner = (Y >= 3.62 + (Z - 1.94) * 0.10) & (Y <= g_front) & (Z >= 1.94) & (Z <= t - 0.16)
     p_front = 3.37 - (Z - 2.59) * 0.77
     pilot = (Y >= 1.76 + (Z - 2.59) * 0.08) & (Y <= p_front) & (Z >= 2.59) & (Z <= t - 0.16)
-    # roof strip over both seats (owner's r4 pick), pointed at the front and
-    # split by posts that sweep back from the centre line
-    roof = (Y >= 1.95) & (Y <= 5.30 - ax * 0.9) & (ax <= 0.40) & (Z >= t - 0.12)
-    posts = np.zeros_like(roof)
-    for yp in (2.62, 3.48, 4.30):
-        posts = posts | (np.abs(Y - (yp - ax * 0.6)) <= 0.045)
+    # roof strip over both seats (owner's r4 pick): rectangular panes split
+    # by straight frame bars; it stops 0.06 m short of the hood edges so the
+    # bars always meet the side frames
+    roof = (Y >= 1.95) & (Y <= 5.30) & (ax <= 0.40) & (Z >= t - 0.12)
+    posts = (np.abs(Y - 2.62) <= 0.045) | (np.abs(Y - 3.48) <= 0.05) | (np.abs(Y - 4.30) <= 0.045)
     return (gunner | pilot | roof) & ~(roof & posts)
 
 
-COCKPITS = ((3.55, 4.85, 1.36), (1.70, 3.45, 1.86))
+COCKPITS = ((3.55, 4.76, 1.36), (1.84, 3.45, 1.86))
 NAC_X, NAC_Z = 0.80, 3.40          # shoulder engine nacelle centreline
 NAC_RX, NAC_RZ = 0.40, 0.48        # its half-width and half-height (front view)
 SPINE_Y = [-2.05, -1.85, 0.20, 1.40]   # raised mast housing between the nacelles
@@ -265,8 +277,10 @@ def build_body(L):
 
     # nose: forward sensor turret proud of the blunt face, a dark crease
     # along the chin facet
-    L.paint(*ball(SENSOR, 0.30), "gunmetal")
-    L.paint(*ball((SENSOR[0], SENSOR[1] + 0.20, SENSOR[2]), 0.13), "lens")
+    L.paint(*box(-0.30, 0.30, 5.62, 6.02, SENSOR[2] - 0.17, SENSOR[2] + 0.15), "gunmetal")
+    L.paint(*box(-0.24, 0.24, 6.02, 6.05, SENSOR[2] - 0.12, SENSOR[2] + 0.10), "black")
+    L.paint(*box(0.04, 0.18, 6.04, 6.07, SENSOR[2] - 0.08, SENSOR[2] + 0.06), "lens")
+    L.paint(*box(-0.04, 0.00, 6.04, 6.07, SENSOR[2] - 0.10, SENSOR[2] - 0.07), "green_light")
     L.paint((-1.0, 1.0, 4.6, 6.0, 0.7, 1.4), lambda X, Y, Z: np.abs(np.abs(X) + (1.10 - Z) - (loft(Y)[0] - 0.05)) <= 0.03,
             "seam", only=["hull"])
 
@@ -330,20 +344,20 @@ def build_body(L):
 
     # stub wings above the door, planform off the top schematic: a broad
     # swept trapezoid (root chord y 0.37..-2.0, tip y -0.30..-1.42 at 2.45 m),
-    # 10 deg anhedral, a rocket pod under each tip (owner keeps them)
+    # 20 deg anhedral, a rocket pod under each tip (owner keeps them)
     for s in (1, -1):
         def wing(X, Y, Z, s=s):
             ax = X * s
             f = np.clip((ax - 1.15) / (WING_TIP - 1.15), 0, 1)
             le = 0.37 + (-0.30 - 0.37) * f
             te = -2.00 + (-1.42 + 2.00) * f
-            zc = WING_Z - (ax - 1.15) * 0.18
+            zc = WING_Z - (ax - 1.15) * 0.36           # 20 deg anhedral (front schematic)
             return (ax >= 1.0) & (ax <= WING_TIP) & (Y <= le) & (Y >= te) & (np.abs(Z - zc) <= 0.08)
-        L.paint((-2.6, 2.6, -2.1, 0.45, 2.2, 2.75), wing, "hull")
-        L.paint(*box(s * (WING_TIP - 0.05) - 0.05, s * (WING_TIP - 0.05) + 0.05, -0.75, -0.55, 2.30, 2.44),
+        L.paint((-2.6, 2.6, -2.1, 0.45, 1.9, 2.75), wing, "hull")
+        L.paint(*box(s * (WING_TIP - 0.05) - 0.05, s * (WING_TIP - 0.05) + 0.05, -0.75, -0.55, 2.06, 2.20),
                 "green_light" if s > 0 else "red_light")
         # rocket pod under the outer wing: tube bundle, faceted dark face
-        L.paint(*box(s * POD_X - 0.05, s * POD_X + 0.05, -1.2, -0.5, POD_Z + 0.25, 2.40), "gunmetal")
+        L.paint(*box(s * POD_X - 0.05, s * POD_X + 0.05, -1.2, -0.5, POD_Z + 0.25, 2.25), "gunmetal")
         L.paint(*cyl_y(s * POD_X, POD_Z, 0.33, -1.75, 0.10), "hull_dark")
         L.paint(*cyl_y(s * POD_X, POD_Z, 0.29, 0.10, 0.17), "gunmetal")
         for ang in range(0, 360, 51):
@@ -435,7 +449,9 @@ def build_body(L):
 
 
 def window_fn_skin(X, Y, Z):
-    return skin_fn(X, Y, Z) & window_fn(X, Y, Z)
+    """glass: the hull's outer 0.12 m inside the panes -- thick enough that a
+    pane on the steep nose lean stays one 6-connected sheet"""
+    return fus_fn(X, Y, Z) & ~fus_fn(X, Y, Z, grow=-0.12) & window_fn(X, Y, Z)
 
 
 def ramp_fn(X, Y, Z, grow=0.0):
@@ -638,6 +654,28 @@ def components(vox):
     return sorted(sizes, reverse=True)
 
 
+def prune_crumbs(vox, min_size=10):
+    """drop 6-connected pieces under min_size voxels: sampling crumbs where a
+    pane edge meets a cut-out, never real detail (those are printed and
+    attached, see the components check)"""
+    vset, seen, keep = set(vox), set(), {}
+    for start in vox:
+        if start in seen:
+            continue
+        cells, stack = [], [start]
+        seen.add(start)
+        while stack:
+            x, y, z = stack.pop()
+            cells.append((x, y, z))
+            for q in ((x+1,y,z),(x-1,y,z),(x,y+1,z),(x,y-1,z),(x,y,z+1),(x,y,z-1)):
+                if q in vset and q not in seen:
+                    seen.add(q)
+                    stack.append(q)
+        if len(cells) >= min_size:
+            keep.update({c: vox[c] for c in cells})
+    return keep
+
+
 def split_y(a, y_lo, y_hi):
     out = np.zeros_like(a)
     j0 = max(vi(y_lo) - Y0, 0) if y_lo is not None else 0
@@ -703,12 +741,15 @@ _fore = split_y(_body.a, FORE_SPLIT_Y, None)
 _aft = split_y(_body.a, BOOM_SPLIT_Y, FORE_SPLIT_Y)
 _boom = split_y(_body.a, None, BOOM_SPLIT_Y)
 
-PARTS = {"body_fore": to_vox([_fore]), "body_aft": to_vox([_aft]), "boom": to_vox([_boom]),
+PARTS = {"body_fore": prune_crumbs(to_vox([_fore])), "body_aft": prune_crumbs(to_vox([_aft])), "boom": prune_crumbs(to_vox([_boom])),
          "canopy": to_vox([_canopy]), "gun": to_vox([_gun]), "tailrotor": to_vox([_fan]),
          "hub": to_vox([_hub]), "blade": _blade,
          "door_l": to_vox([_door_l.a]), "door_r": to_vox([_door_r.a]), "ramp": to_vox([_ramp.a])}
 
-airframe = to_vox([_body.a, _canopy, _gun, _fan, _hub, _door_l.a, _door_r.a, _ramp.a])
+airframe = {}
+for _n, _v in PARTS.items():
+    if _n != "blade":
+        airframe.update(_v)
 rotor = {}
 for _i in range(ROTOR_BLADES):
     rotor.update(rotate_z(_blade, 2 * math.pi * _i / ROTOR_BLADES + math.radians(18)))
