@@ -63,7 +63,7 @@ PALETTE = [
     ("camo_dark",    (70, 76, 84)),     # ~3:1 against camo_light (rater r12)
     ("camo_light",   (137, 141, 146)),   # lightest camo tone, still a mid-light grey (rater r13)
     ("seam",         (44, 48, 54)),
-    ("canopy_glass", (c8(0.55), c8(0.80), c8(0.95))),   # == game CHOPPER_GLASS
+    ("canopy_glass", (92, 126, 146)),   # darker even tint (concept 10); game CHOPPER_GLASS must follow at integration
     ("frame",        (66, 71, 78)),
     ("cockpit",      (c8(0.12), c8(0.12), c8(0.14))),
     ("gunmetal",     (c8(0.30), c8(0.31), c8(0.34))),
@@ -207,7 +207,7 @@ CAMO_SEED = 9
 # fuselage loft: half-width, top, bottom per station. The cabin ends in a
 # hard step (y -3.30 -> -3.40) into a thick, high boom.
 FUS_Y = [-6.30, -5.60, -4.50, -3.40, -3.30, -2.65, -2.30, -1.00, 0.50, 1.25, 2.40, 3.50, 4.75, 5.40, 5.80]
-FUS_W = [0.40, 0.52, 0.52, 0.48, 0.95, 1.18, 1.26, 1.30, 1.30, 1.28, 1.22, 1.12, 0.94, 0.72, 0.52]
+FUS_W = [0.40, 0.52, 0.52, 0.48, 0.95, 1.18, 1.26, 1.30, 1.30, 1.28, 1.22, 1.12, 0.94, 0.78, 0.62]
 FUS_T = [3.46, 3.38, 3.32, 3.30, 3.36, 3.36, 3.30, 3.24, 3.62, 3.86, 3.52, 3.03, 2.40, 1.90, 1.62]
 FUS_B = [2.24, 2.14, 2.12, 2.10, 1.40, 1.10, 0.86, 0.78, 0.78, 0.78, 0.78, 0.78, 0.80, 0.98, 1.22]
 CHAMFER_TOP = 0.45   # 45-degree facets along the roof edges
@@ -217,8 +217,8 @@ LEAN = 0.16          # upper sides lean in (tumblehome) per metre above the wais
 # cheeks, so the glazing sits on a narrow ~1.4 m hood (front schematic)
 NOSE_LEAN = 0.52                         # upper nose face, per metre above the crease
 NOSE_CREASE = ([1.6, 3.6, 4.8, 5.8], [1.72, 1.75, 1.62, 1.40])   # (y, z): the hull's widest line
-NOSE_KEEL = ([1.6, 3.4, 5.0, 5.8], [1.10, 0.62, 0.36, 0.30])     # (y, half-width) of the nose bottom
-NOSE_CHEEK = ([1.6, 3.6, 5.0, 5.8], [0.35, 0.35, 0.20, 0.0])     # (y, height) of the flat cheek band
+NOSE_KEEL = ([1.6, 3.4, 5.0, 5.8], [1.10, 0.62, 0.40, 0.38])     # (y, half-width) of the nose bottom
+NOSE_CHEEK = ([1.6, 3.6, 5.0, 5.8], [0.35, 0.35, 0.22, 0.12])     # (y, height) of the flat cheek band
 NOSE_BLEND_Y = (1.2, 2.0)                # cabin section -> nose section
 GLASS_BAND = 0.30                        # solid hull between roof glass and side panes (rater r10)
 PANE_POST = 0.15                         # frame post between the side panes
@@ -427,7 +427,7 @@ def build_body(L):
             zc = WING_Z - (ax - 1.15) * 0.36           # 20 deg anhedral (front schematic)
             return (ax >= 1.0) & (ax <= WING_TIP) & (Y <= le) & (Y >= te) & (np.abs(Z - zc) <= 0.08)
         L.paint((-2.6, 2.6, -2.1, 0.45, 1.9, 2.75), wing, "hull")
-        L.paint(*box(s * (WING_TIP - 0.05) - 0.05, s * (WING_TIP - 0.05) + 0.05, -0.75, -0.55, 2.06, 2.20),
+        L.paint(*box(s * (WING_TIP - 0.05) - 0.05, s * (WING_TIP - 0.05) + 0.05, -0.68, -0.62, 2.10, 2.16),
                 "green_light" if s > 0 else "red_light")
         # pylons (the pods themselves are the fine 'pods' part)
         L.paint(*box(s * POD_X - 0.06, s * POD_X + 0.06, -1.2, -0.5, POD_Z + 0.22, 2.25), "gunmetal")
@@ -645,10 +645,15 @@ def livery(a):
     deck = (np.abs(arc) < 1.3) & (P[:, 1] > 0.75) & (P[:, 1] < 1.70 - np.abs(P[:, 0]) * 0.5) & (np.abs(P[:, 0]) < 0.95) & ~on_spine
     col = np.where(deck, CI["camo_dark"], col)
     a[idx[:, 0], idx[:, 1], idx[:, 2]] = col
-    # top faces a shade lighter
+    # flat upward panels a shade lighter: a top face counts only when its
+    # four neighbours are top faces too, so the 1-voxel ledges of a sloped
+    # side stay base grey instead of striping it (rater r15)
     e = np.zeros(a.shape, bool)
     e[:, :, :-1] = (a[:, :, 1:] == 0)
-    a[(a == CI["hull"]) & e] = CI["hull_light"]
+    e &= a > 0
+    flat = e.copy()
+    flat[1:-1, 1:-1] &= e[:-2, 1:-1] & e[2:, 1:-1] & e[1:-1, :-2] & e[1:-1, 2:]
+    a[(a == CI["hull"]) & flat] = CI["hull_light"]
 
 
 # ------------------------------------------------------------------ separate parts
