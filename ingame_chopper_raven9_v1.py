@@ -248,6 +248,7 @@ NOSE_BLEND_Y = (1.2, 2.0)                # cabin section -> nose section
 GLASS_BAND = 0.30                        # solid hull between roof glass and side panes (rater r10)
 PANE_POST = 0.15                         # frame post between the side panes
 HOOD_HALF = 0.46                         # half-width of the cockpit hood's flat top
+CHINE_STEP = 0.12                        # nose: the chin plane starts this far in from the cheek (rater r18)
 
 # Grid-friendly slopes (r18): a voxel staircase reads as a clean facet only
 # when its slope is a small ratio (1:1, 1:2, 1:3, 2:3 ...), which repeats in
@@ -316,6 +317,9 @@ def fus_fn(X, Y, Z, grow=0.0):
     # chin plane slope snapped to a grid ratio per station (clean steps; the
     # keel width moves by under a voxel)
     lo = np.clip(zl - Z, 0, None) * snap_ratio((w - wb) / np.maximum(zl - b, 0.05))
+    # chine: a hard width step (geometry, not paint) where the near-vertical
+    # cheek meets the chin plane, so the nose reads as a faceted wedge
+    lo = lo + np.where(Z < zl, CHINE_STEP, 0.0)
     hw = hw_c * (1 - f) + (w - up - lo) * f
     inside = (ax <= hw + grow) & (Z <= t + grow) & (Z >= b - grow)
     inside &= ax + (Z - (t - ct)) <= hw + grow * 1.414 + 1e-6
@@ -383,7 +387,7 @@ def build_body(L):
     # nose: forward sensor turret proud of the blunt face, a dark crease
     # along the chin facet
     L.paint(*box(-0.43, 0.43, 5.46, 5.96, SENSOR[2] - 0.23, SENSOR[2] + 0.22), "camo_light")   # bevel frame
-    L.paint(*box(-0.37, 0.37, 5.96, 6.04, SENSOR[2] - 0.17, SENSOR[2] + 0.16), "gunmetal")
+    L.paint(*box(-0.40, 0.40, 5.96, 6.04, SENSOR[2] - 0.20, SENSOR[2] + 0.19), "seam")       # dark inset (rater r18)
     L.paint(*box(-0.33, 0.33, 6.04, 6.10, SENSOR[2] - 0.13, SENSOR[2] + 0.12), "black")      # lens plate
     L.paint(*box(0.02, 0.16, 6.08, 6.14, SENSOR[2] - 0.08, SENSOR[2] + 0.08), "lens")
     L.paint(*box(-0.14, -0.04, 6.08, 6.14, SENSOR[2] - 0.12, SENSOR[2] - 0.04), "green_light")
@@ -499,7 +503,7 @@ def build_body(L):
         L.paint(*box(x0, x1, -0.68, -0.62, tz - 0.03, tz + 0.03), "green_light" if s > 0 else "red_light")
         # pylons (the pods themselves are the fine 'pods' part)
         L.paint(*box(s * POD_X - 0.06, s * POD_X + 0.06, -1.2, -0.5, POD_Z + 0.22, 2.25), "gunmetal")
-        L.paint(*box(min(s * 1.0, s * (FPOD_X - 0.2)), max(s * 1.0, s * (FPOD_X - 0.2)), FPOD_Y0 + 0.3, FPOD_Y1 - 0.5,
+        L.paint(*box(min(s * 0.8, s * (FPOD_X - 0.2)), max(s * 0.8, s * (FPOD_X - 0.2)), FPOD_Y0 + 0.3, FPOD_Y1 - 0.5,
                      FPOD_Z - 0.07, FPOD_Z + 0.07), "gunmetal")
 
         # fuel-cell sponson behind the door, rounded ends; the main wheel under it
@@ -704,6 +708,15 @@ def livery(a):
     # one mid-grey patch (~0.8 m diamond) breaks the pale lower cheek each side
     cheek = np.abs(P[:, 1] - 2.9) * 0.8 + np.abs(P[:, 2] - 1.25) <= 0.40
     col = np.where(cheek & (col == CI["camo_light"]), CI["hull"], col)
+    # camo stops at panel edges: the door surround and the glazing frames stay
+    # base grey, so a patch edge never cuts across a frame (rater r18)
+    door_sur = (np.abs(P[:, 0]) > 0.9) & (P[:, 1] >= DOOR_Y0 - 0.24) & (P[:, 1] <= DOOR_Y1 + 0.24) \
+        & (P[:, 2] >= DOOR_Z0 - 0.24) & (P[:, 2] <= DOOR_Z1 + 0.24)
+    glass_sur = np.zeros(len(P), bool)
+    for dy in (-0.15, 0, 0.15):
+        for dz in (-0.15, 0, 0.15):
+            glass_sur |= window_fn(P[:, 0], P[:, 1] + dy, P[:, 2] + dz)
+    col = np.where(door_sur | glass_sur, CI["hull"], col)
     on_spine = (np.abs(P[:, 0]) < 0.62) & (P[:, 2] > 3.25) & (P[:, 1] > SPINE_Y[0]) & (P[:, 1] < SPINE_Y[-1])
     col = np.where(on_spine & (col == CI["camo_dark"]), CI["hull"], col)
     # dark slanted patch on each chin plane under the cheek bay
