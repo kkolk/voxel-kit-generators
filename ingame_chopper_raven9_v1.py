@@ -33,6 +33,31 @@ LANDMARK MAP (metres; file voxel = round(m / VOXEL_M) + the part's offset)
                debris).
     door_l, door_r  cabin side doors, closed; hinge about z at DOOR_HINGE_*.
     ramp       rear loading ramp, closed; hinge about x at RAMP_HINGE.
+
+SMOOTHING OPTIONS (owner, r18; not built -- for the game integration step)
+The game mesher (strike-bay scripts/voxel/voxel_mesher.gd) lights every
+voxel face with its flat cube normal, so each stair step on a curve catches
+the light on its own and the hull reads ribbed. This generator already
+snaps the nose to grid-friendly slopes (GRID_SLOPES) so the steps are even.
+Two further options, each a change on the game side:
+  1. Smooth normals: keep the blocky voxel outline, but give each face the
+     normal of the surface it approximates, so the lighting reads as smooth
+     or cleanly faceted panels and the ribbing mostly goes. Normals can come
+     from the loader (gradient of a blurred occupancy field over a few
+     voxels) or be baked here from the true shape functions (fus_fn and
+     friends) into a sidecar JSON, since .vox stores no normals. Best as a
+     per-model switch on VoxelMesher (chopper on, the rest of the voxel art
+     unchanged); its face merging must then stop merging faces whose smooth
+     normals differ.
+  2. True smooth meshing: mesh the occupancy with marching cubes / surface
+     nets (optionally on a signed distance from the shape functions) and
+     carry palette colours per vertex. Removes the stair steps entirely but
+     drops the voxel look the rest of the game shares, and soft colour
+     edges replace the crisp camo; not recommended unless the art style
+     changes.
+If neither is enough at gameplay distance, the fallback is a finer shell:
+COARSE_M = FINE_M (0.03 m) halves the step height for ~2.5x the surface
+voxels (~189k vs ~74k).
 Needs numpy.
 """
 import os
@@ -212,10 +237,10 @@ FUS_T = [3.46, 3.38, 3.32, 3.30, 3.36, 3.36, 3.30, 3.24, 3.62, 3.86, 3.52, 3.03,
 FUS_B = [2.24, 2.14, 2.12, 2.10, 1.40, 1.10, 0.86, 0.78, 0.78, 0.78, 0.78, 0.78, 0.80, 0.98, 1.22]
 CHAMFER_TOP = 0.45   # 45-degree facets along the roof edges
 CHAMFER_BOT = 0.32
-LEAN = 0.16          # upper sides lean in (tumblehome) per metre above the waist
+LEAN = 1 / 6         # upper sides lean in (tumblehome) per metre above the waist
 # from the cockpit forward the upper hull leans in hard from just above the
 # cheeks, so the glazing sits on a narrow ~1.4 m hood (front schematic)
-NOSE_LEAN = 0.52                         # upper nose face, per metre above the crease
+NOSE_LEAN = 1 / 2                        # upper nose face, per metre above the crease
 NOSE_CREASE = ([1.6, 3.6, 4.8, 5.8], [1.72, 1.75, 1.62, 1.40])   # (y, z): the hull's widest line
 NOSE_KEEL = ([1.6, 3.4, 5.0, 5.8], [1.10, 0.62, 0.40, 0.38])     # (y, half-width) of the nose bottom
 NOSE_CHEEK = ([1.6, 3.6, 5.0, 5.8], [0.35, 0.35, 0.22, 0.12])     # (y, height) of the flat cheek band
@@ -223,6 +248,41 @@ NOSE_BLEND_Y = (1.2, 2.0)                # cabin section -> nose section
 GLASS_BAND = 0.30                        # solid hull between roof glass and side panes (rater r10)
 PANE_POST = 0.15                         # frame post between the side panes
 HOOD_HALF = 0.46                         # half-width of the cockpit hood's flat top
+
+# Grid-friendly slopes (r18): a voxel staircase reads as a clean facet only
+# when its slope is a small ratio (1:1, 1:2, 1:3, 2:3 ...), which repeats in
+# short even steps; an arbitrary slope steps unevenly and looks noisy. The
+# nose and roof run forward of the cabin (y >= GRID_SNAP_Y) is snapped to the
+# nearest such ratio, each segment aimed at the next authored station so the
+# drift stays under one shell voxel; the cabin and boom stay as matched to
+# the overlays.
+GRID_SLOPES = sorted({sg * r for sg in (1, -1) for r in
+                      (0, 1 / 12, 1 / 8, 1 / 6, 1 / 4, 1 / 3, 1 / 2, 2 / 3, 3 / 4, 1, 4 / 3, 3 / 2, 2, 3, 4, 6)})
+GRID_SNAP_Y = 1.25
+
+
+def snap_slopes(ys, vs, y0=GRID_SNAP_Y):
+    out = list(vs[:1])
+    for k in range(len(ys) - 1):
+        dy = ys[k + 1] - ys[k]
+        want = (vs[k + 1] - out[-1]) / dy
+        if ys[k] < y0 - 1e-9 or abs(want) > 6.5:     # cabin / boom, or a step
+            out.append(vs[k + 1])
+            continue
+        r = min(GRID_SLOPES, key=lambda q: abs(q - want))
+        out.append(round(out[-1] + r * dy, 4))
+    return out
+
+
+def snap_ratio(r):
+    """nearest GRID_SLOPES value, elementwise"""
+    g = np.array(GRID_SLOPES)
+    return g[np.abs(np.asarray(r)[..., None] - g).argmin(-1)]
+
+
+FUS_W, FUS_T, FUS_B = (snap_slopes(FUS_Y, v) for v in (FUS_W, FUS_T, FUS_B))
+NOSE_CREASE = (NOSE_CREASE[0], snap_slopes(*NOSE_CREASE, y0=0))
+NOSE_KEEL = (NOSE_KEEL[0], snap_slopes(*NOSE_KEEL, y0=0))
 
 
 def loft(y):
@@ -253,7 +313,9 @@ def fus_fn(X, Y, Z, grow=0.0):
     up = np.minimum(np.clip(Z - zc, 0, None) * NOSE_LEAN, np.maximum(w - (HOOD_HALF + ct), 0))
     ch = np.interp(Y, *NOSE_CHEEK)                      # vertical cheek band under the crease
     zl = np.maximum(zc - ch, b + 0.04)
-    lo = np.clip(zl - Z, 0, None) * (w - wb) / np.maximum(zl - b, 0.05)
+    # chin plane slope snapped to a grid ratio per station (clean steps; the
+    # keel width moves by under a voxel)
+    lo = np.clip(zl - Z, 0, None) * snap_ratio((w - wb) / np.maximum(zl - b, 0.05))
     hw = hw_c * (1 - f) + (w - up - lo) * f
     inside = (ax <= hw + grow) & (Z <= t + grow) & (Z >= b - grow)
     inside &= ax + (Z - (t - ct)) <= hw + grow * 1.414 + 1e-6
@@ -320,9 +382,9 @@ def build_body(L):
 
     # nose: forward sensor turret proud of the blunt face, a dark crease
     # along the chin facet
-    L.paint(*box(-0.36, 0.36, 5.46, 5.96, SENSOR[2] - 0.23, SENSOR[2] + 0.22), "camo_light")   # bevel frame
-    L.paint(*box(-0.30, 0.30, 5.96, 6.04, SENSOR[2] - 0.17, SENSOR[2] + 0.16), "gunmetal")
-    L.paint(*box(-0.26, 0.26, 6.04, 6.10, SENSOR[2] - 0.13, SENSOR[2] + 0.12), "black")      # lens plate
+    L.paint(*box(-0.43, 0.43, 5.46, 5.96, SENSOR[2] - 0.23, SENSOR[2] + 0.22), "camo_light")   # bevel frame
+    L.paint(*box(-0.37, 0.37, 5.96, 6.04, SENSOR[2] - 0.17, SENSOR[2] + 0.16), "gunmetal")
+    L.paint(*box(-0.33, 0.33, 6.04, 6.10, SENSOR[2] - 0.13, SENSOR[2] + 0.12), "black")      # lens plate
     L.paint(*box(0.02, 0.16, 6.08, 6.14, SENSOR[2] - 0.08, SENSOR[2] + 0.08), "lens")
     L.paint(*box(-0.14, -0.04, 6.08, 6.14, SENSOR[2] - 0.12, SENSOR[2] - 0.04), "green_light")
     # 5b. cheek missile bay: a recess one hull skin deep ahead of the wing, a
@@ -427,8 +489,14 @@ def build_body(L):
             zc = WING_Z - (ax - 1.15) * 0.36           # 20 deg anhedral (front schematic)
             return (ax >= 1.0) & (ax <= WING_TIP) & (Y <= le) & (Y >= te) & (np.abs(Z - zc) <= 0.08)
         L.paint((-2.6, 2.6, -2.1, 0.45, 1.9, 2.75), wing, "hull")
-        L.paint(*box(s * (WING_TIP - 0.05) - 0.05, s * (WING_TIP - 0.05) + 0.05, -0.68, -0.62, 2.10, 2.16),
-                "green_light" if s > 0 else "red_light")
+        # tip cap: a thin end plate proud of the wing, so the tip reads in the
+        # low 3/4 (rater r17); hull grey, as a pale one reads as a stripe in
+        # the side view; the nav light on its outer face
+        tz = WING_Z - (WING_TIP - 1.15) * 0.36
+        x0, x1 = sorted((s * WING_TIP, s * (WING_TIP + 0.06)))
+        L.paint(*box(x0, x1, -1.44, -0.28, tz - 0.14, tz + 0.14), "hull")
+        x0, x1 = sorted((s * (WING_TIP + 0.06), s * (WING_TIP + 0.12)))
+        L.paint(*box(x0, x1, -0.68, -0.62, tz - 0.03, tz + 0.03), "green_light" if s > 0 else "red_light")
         # pylons (the pods themselves are the fine 'pods' part)
         L.paint(*box(s * POD_X - 0.06, s * POD_X + 0.06, -1.2, -0.5, POD_Z + 0.22, 2.25), "gunmetal")
         L.paint(*box(min(s * 1.0, s * (FPOD_X - 0.2)), max(s * 1.0, s * (FPOD_X - 0.2)), FPOD_Y0 + 0.3, FPOD_Y1 - 0.5,
@@ -629,7 +697,7 @@ def livery(a):
         return cell
 
     p = [0.42, 0.33, 0.25]                                     # base / dark / light
-    n = 150                                                    # 0.6-1.2 m patches
+    n = 90                                                     # 1-2 m patches (rater r17)
     cell = cells(P[:, 1], arc, n, (-8.8, 6.8), (-4.1, 4.1))
     lab = rng.choice([0, 1, 2], (n, 3), p=p)[cell, face]
     col = np.where(lab == 1, CI["camo_dark"], np.where(lab == 2, CI["camo_light"], CI["hull"]))
